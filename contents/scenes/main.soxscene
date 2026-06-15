@@ -124,12 +124,17 @@
         ),
 
         // --- Player pawn: the skinned sausage -------------------------
-        // Carries the body: a skinned mesh (the engine's test sausage
-        // FBX) and a CharacterMover (kinematic collide-and-slide; owns
-        // its own capsule). Movement is driven by contents/game.rhai
-        // (which reads the directional input actions and calls
-        // mover_input). Tagged "Player" so the PlayerController below
-        // auto-possesses it (which is what the CameraRig follows).
+        // The pawn entity carries the body logic: a CharacterMover
+        // (kinematic collide-and-slide; its capsule is ~1.8 m tall, owned
+        // by MoverSettings) and the "Player" tag (so the PlayerController
+        // auto-possesses it, which is what the CameraRig follows).
+        // Movement is driven by contents/game.rhai.
+        //
+        // The sausage FBX is ~5.9 m tall with its origin at the feet, so
+        // the visible mesh lives on a CHILD entity: scaled to ~0.3 (to
+        // match the capsule) and offset down by the capsule half-height
+        // (the mover keeps the pawn origin at the capsule centre, ~0.9 m
+        // up), so the mesh's feet land on the ground.
         (
             overrides: (
                 name: "Player",
@@ -141,8 +146,20 @@
                         scale: (1.0, 1.0, 1.0),
                     ),
                 )),
-                mesh3d: Some((mesh_path: Some("meshes/sausage.fbx"))),
                 character_mover: Some(()),
+                children: [
+                    (
+                        name: "PlayerMesh",
+                        scene_entity: Some((
+                            transform: (
+                                translation: (0.0, -0.9, 0.0),
+                                rotation: (0.0, 0.0, 0.0, 1.0),
+                                scale: (0.3, 0.3, 0.3),
+                            ),
+                        )),
+                        mesh3d: Some((mesh_path: Some("meshes/sausage.fbx"))),
+                    ),
+                ],
             ),
         ),
 

@@ -67,12 +67,17 @@ fn main() {
     assert_eq!(scene.instances.len(), 12, "expected 12 entity instances");
     let coins = scene.instances.iter().filter(|i| i.overrides.tags.iter().any(|t| t == "Coin")).count();
     assert_eq!(coins, 3, "three collectible coins");
+    // The sausage mesh lives on the Player's child entity (scaled down +
+    // offset so its feet sit on the ground; see the scene comment).
     let player_inst = scene.instances.iter().find(|i| i.overrides.name == "Player").expect("Player");
-    assert_eq!(
-        player_inst.overrides.mesh3d.as_ref().and_then(|m| m.mesh_path.as_deref()),
-        Some("meshes/sausage.fbx"),
-        "player uses the sausage FBX",
-    );
+    let mesh_child = player_inst
+        .overrides
+        .children
+        .iter()
+        .find(|c| c.mesh3d.as_ref().and_then(|m| m.mesh_path.as_deref()) == Some("meshes/sausage.fbx"))
+        .expect("Player has a child carrying the sausage FBX");
+    let mesh_scale = mesh_child.scene_entity.unwrap().transform.scale.x;
+    assert!(mesh_scale < 0.5, "sausage scaled down to fit the scene (scale = {mesh_scale})");
     assert!(contents.join("meshes/sausage.fbx").is_file(), "sausage FBX vendored");
     println!("[ok] scene parsed: {} instances", scene.instances.len());
 
