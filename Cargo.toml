@@ -1,0 +1,43 @@
+[workspace]
+resolver = "2"
+members = ["."]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+# Matches the engine's real MSRV (enforced in the engine's CI).
+rust-version = "1.88"
+
+[package]
+name = "sausage_playground"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[[bin]]
+name = "sausage_playground"
+path = "src/main.rs"
+
+# The engine lives in a SEPARATE repository and is pulled in as a git
+# dependency (NOT a path dependency): the game tree and the engine tree
+# stay physically disjoint, which is a hard architectural invariant of
+# Soxide. The crates are workspace members of the engine repo, addressed
+# by package name and pinned to an exact revision for reproducibility.
+[dependencies]
+soxide-engine = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-engine", rev = "124bd242ec46f9cc88bbc7fdae7487150eac5dde" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+soxide-platform-linux = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-linux", rev = "124bd242ec46f9cc88bbc7fdae7487150eac5dde" }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+soxide-platform-windows = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-windows", rev = "124bd242ec46f9cc88bbc7fdae7487150eac5dde" }
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
