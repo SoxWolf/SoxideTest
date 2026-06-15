@@ -125,10 +125,11 @@
 
         // --- Player pawn: the skinned sausage -------------------------
         // Carries the body: a skinned mesh (the engine's test sausage
-        // FBX), a CharacterMover (kinematic collide-and-slide; owns its
-        // own capsule), and the MoverInputBinding that turns the Move /
-        // Jump actions into movement intent. Tagged "Player" so the
-        // PlayerController below auto-possesses it.
+        // FBX) and a CharacterMover (kinematic collide-and-slide; owns
+        // its own capsule). Movement is driven by contents/game.rhai
+        // (which reads the directional input actions and calls
+        // mover_input). Tagged "Player" so the PlayerController below
+        // auto-possesses it (which is what the CameraRig follows).
         (
             overrides: (
                 name: "Player",
@@ -142,11 +143,6 @@
                 )),
                 mesh3d: Some((mesh_path: Some("meshes/sausage.fbx"))),
                 character_mover: Some(()),
-                mover_input: Some((
-                    move_action: "Move",
-                    jump_action: "Jump",
-                    camera_relative: true,
-                )),
             ),
         ),
 

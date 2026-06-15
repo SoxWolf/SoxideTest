@@ -1,8 +1,0 @@
-// Move — an Axis2D action (x = right, y = forward). No explicit
-// triggers, so the engine adds the default `Down` trigger (fires every
-// frame the input is actuated). The MoverInputBinding on the player
-// pawn reads this each frame and drives the CharacterMover.
-(
-    name: "Move",
-    value_kind: Axis2D,
-)

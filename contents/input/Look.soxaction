@@ -1,6 +1,7 @@
-// Look — an Axis2D action (x = yaw, y = pitch). Driven by mouse motion
-// (see the gameplay context). The CameraRig's `look_action` reads this
-// to orbit the spring-arm.
+// Look — an Axis2D action. Only mouse X (yaw) is bound, in the context;
+// the y/pitch axis would require a Swizzle modifier, which the engine's
+// on-disk modifier encoding can't round-trip, so the follow camera
+// orbits in yaw only. The CameraRig's `look_action` reads this.
 (
     name: "Look",
     value_kind: Axis2D,

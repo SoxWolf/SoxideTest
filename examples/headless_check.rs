@@ -1,36 +1,39 @@
 //! Headless smoke test for the sample (no window / GPU required).
 //!
 //! Validates the whole authored asset stack against the real engine
-//! types and exercises the gameplay schedule:
+//! types and exercises the gameplay schedule end to end:
 //!
 //! 1. the `.soxproj` manifest loads and points at the scene;
 //! 2. every `.soxaction` / `.soxinputcontext` parses;
 //! 3. the `.soxscene` parses into the expected instances;
-//! 4. applying it to a world produces the expected components;
-//! 5. running the engine schedule auto-possesses the pawn, settles it
-//!    on the floor collider, and drives the follow camera — all without
-//!    a single panic.
+//! 4. applying it to a world produces the expected components and the
+//!    gameplay script actually loads;
+//! 5. running the schedule auto-possesses the pawn, settles it on the
+//!    floor, drives the follow camera, and — when input is fed — the
+//!    script moves the character. All without a panic.
 //!
 //! Run with: `cargo run --example headless_check`
 
-use soxide_engine::gameplay::{AiController, CameraRig, MoverInputBinding, PlayerController};
+use soxide_engine::ecs::Entity;
+use soxide_engine::gameplay::{AiController, CameraRig, PlayerController};
 use soxide_engine::input::{InputActionFile, InputContextFile};
 use soxide_engine::physics::{BodyKind, CharacterMover, Collider, RigidBody};
-use soxide_engine::render::{AmbientLight, Camera3d, DirectionalLight};
-use soxide_engine::ecs::Entity;
+use soxide_engine::render::{AmbientLight, Camera3d, DirectionalLight, SceneEntity};
+use soxide_engine::script::Scripts;
+use soxide_engine::window::input::ButtonState;
+use soxide_engine::window::{Input, KeyCode};
 use soxide_engine::{App, EntityName, Project, Scene};
 use std::path::{Path, PathBuf};
 
 fn find(app: &App, name: &str) -> Entity {
     app.world
         .iter_entities()
-        .find(|&e| {
-            app.world
-                .get::<EntityName>(e)
-                .map(|n| n.0 == name)
-                .unwrap_or(false)
-        })
+        .find(|&e| app.world.get::<EntityName>(e).map(|n| n.0 == name).unwrap_or(false))
         .unwrap_or_else(|| panic!("entity {name:?} not found in world"))
+}
+
+fn player_pos(app: &App, e: Entity) -> soxide_engine::core::glam::DVec3 {
+    app.world.get::<SceneEntity>(e).unwrap().transform.translation
 }
 
 fn main() {
@@ -48,65 +51,47 @@ fn main() {
     println!("[ok] project '{}' -> {}", project.name, project.default_scene.unwrap().display());
 
     // 2. Input assets.
-    for action in ["Move", "Jump", "Look"] {
+    let actions = ["MoveForward", "MoveBack", "MoveLeft", "MoveRight", "Jump", "Look"];
+    for action in actions {
         let p = contents.join(format!("input/{action}.soxaction"));
         let a = InputActionFile::load(&p).unwrap_or_else(|e| panic!("{action}.soxaction: {e}"));
         assert_eq!(a.name, action);
-        println!("[ok] action {action} ({:?})", a.value_kind);
     }
     let ctx = InputContextFile::load(contents.join("input/gameplay.soxinputcontext"))
         .expect("gameplay.soxinputcontext parses");
-    assert_eq!(ctx.mappings.len(), 7, "WASD + Jump + 2 Look mappings");
-    println!("[ok] context gameplay ({} mappings)", ctx.mappings.len());
+    assert_eq!(ctx.mappings.len(), 6, "WASD + Jump + Look(yaw)");
+    println!("[ok] input: {} actions + gameplay context ({} mappings)", actions.len(), ctx.mappings.len());
 
     // 3. Scene parse.
-    let scene_path = contents.join("scenes/main.soxscene");
-    let scene = Scene::load(&scene_path).expect("scene parses");
+    let scene = Scene::load(&contents.join("scenes/main.soxscene")).expect("scene parses");
     assert_eq!(scene.instances.len(), 12, "expected 12 entity instances");
-    let coin_instances = scene
-        .instances
-        .iter()
-        .filter(|i| i.overrides.tags.iter().any(|t| t == "Coin"))
-        .count();
-    assert_eq!(coin_instances, 3, "three collectible coins");
-    let player_inst = scene
-        .instances
-        .iter()
-        .find(|i| i.overrides.name == "Player")
-        .expect("Player instance present");
+    let coins = scene.instances.iter().filter(|i| i.overrides.tags.iter().any(|t| t == "Coin")).count();
+    assert_eq!(coins, 3, "three collectible coins");
+    let player_inst = scene.instances.iter().find(|i| i.overrides.name == "Player").expect("Player");
     assert_eq!(
-        player_inst
-            .overrides
-            .mesh3d
-            .as_ref()
-            .and_then(|m| m.mesh_path.as_deref()),
+        player_inst.overrides.mesh3d.as_ref().and_then(|m| m.mesh_path.as_deref()),
         Some("meshes/sausage.fbx"),
         "player uses the sausage FBX",
     );
-    assert!(
-        contents.join("meshes/sausage.fbx").is_file(),
-        "sausage FBX vendored into contents",
-    );
+    assert!(contents.join("meshes/sausage.fbx").is_file(), "sausage FBX vendored");
     println!("[ok] scene parsed: {} instances", scene.instances.len());
 
-    // 4. Assemble into a real App world and check component wiring.
+    // 4. Assemble + confirm the gameplay script loaded (it lives in the
+    //    contents root because Scripts::load_dir is non-recursive).
     let mut app = App::from_project_file(&proj_path).expect("app builds from project");
+    let script_count = app.world.get_resource::<Scripts>().map(|s| s.len()).unwrap_or(0);
+    assert!(script_count >= 1, "game.rhai loaded (Scripts::len = {script_count})");
     scene.apply(&mut app.world);
 
     let player = find(&app, "Player");
     assert!(app.world.get::<CharacterMover>(player).is_some(), "Player has CharacterMover");
-    assert!(app.world.get::<MoverInputBinding>(player).is_some(), "Player has MoverInputBinding");
-
     let controller = find(&app, "PlayerController");
     assert!(app.world.get::<PlayerController>(controller).is_some(), "controller present");
-
     let camera = find(&app, "Camera");
     assert!(app.world.get::<Camera3d>(camera).is_some(), "camera has Camera3d");
     assert!(app.world.get::<CameraRig>(camera).is_some(), "camera has CameraRig");
-
     for terrain in ["Ground", "Ramp"] {
-        let e = find(&app, terrain);
-        assert!(app.world.get::<Collider>(e).is_some(), "{terrain} has a collider");
+        assert!(app.world.get::<Collider>(find(&app, terrain)).is_some(), "{terrain} collider");
     }
     assert!(app.world.get::<DirectionalLight>(find(&app, "Sun")).is_some(), "sun light");
     assert!(app.world.get::<AmbientLight>(find(&app, "Ambient")).is_some(), "ambient light");
@@ -114,66 +99,62 @@ fn main() {
     let coins_alive = |app: &App| {
         app.world
             .iter_entities()
-            .filter(|&e| {
-                app.world
-                    .get::<EntityName>(e)
-                    .map(|n| n.0.starts_with("Coin"))
-                    .unwrap_or(false)
-            })
+            .filter(|&e| app.world.get::<EntityName>(e).map(|n| n.0.starts_with("Coin")).unwrap_or(false))
             .count()
     };
     assert_eq!(coins_alive(&app), 3, "three coins spawned");
 
     let platform = find(&app, "Platform");
-    assert!(app.world.get::<Collider>(platform).is_some(), "platform has a collider");
+    assert!(app.world.get::<Collider>(platform).is_some(), "platform collider");
     assert!(
         matches!(app.world.get::<RigidBody>(platform).map(|b| b.kind), Some(BodyKind::Kinematic)),
         "platform is a kinematic body",
     );
-
     let enemy = find(&app, "Enemy");
-    assert!(app.world.get::<AiController>(enemy).is_some(), "enemy has an AiController");
-    assert!(app.world.get::<CharacterMover>(enemy).is_some(), "enemy has a CharacterMover");
-    println!("[ok] component stack assembled (pawn / controller / camera / terrain / lights / 3 coins / platform / enemy)");
+    assert!(app.world.get::<AiController>(enemy).is_some(), "enemy AiController");
+    assert!(app.world.get::<CharacterMover>(enemy).is_some(), "enemy CharacterMover");
+    println!("[ok] stack assembled + game.rhai loaded (pawn/controller/camera/terrain/lights/coins/platform/enemy)");
 
-    // Despawn the enemy before the physics loop: it chases and respawns
-    // the player on contact, which would make the grounded assertion
-    // below nondeterministic. Its components were already verified above.
+    // Despawn the enemy: it chases and respawns the player on contact,
+    // which would make the assertions below nondeterministic. Verified above.
     app.world.despawn(enemy);
 
-    // 5. Run the schedule: auto-possess + physics + camera rig.
-    // Without the platform runner advancing `Time` each frame its delta
-    // stays 0; drop it so the mover / physics fall back to a fixed 1/60
-    // step (the same trick the engine's own integration tests use).
+    // 5a. Settle: no input. Drop Time so mover/physics use a fixed 1/60
+    //     step (Time is normally advanced by the platform runner).
     app.world.resources_mut().remove::<soxide_engine::core::Time>();
-    let cam_start = app.world.get::<soxide_engine::render::SceneEntity>(camera).unwrap().transform.translation;
+    let cam_start = player_pos(&app, camera);
     for _ in 0..240 {
         app.schedule.run(&mut app.world);
     }
-
     let mover = app.world.get::<CharacterMover>(player).expect("mover survives ticks");
-    let player_y = app
-        .world
-        .get::<soxide_engine::render::SceneEntity>(player)
-        .unwrap()
-        .transform
-        .translation
-        .y;
-    assert!(mover.state.grounded, "player settled on the floor collider (y = {player_y})");
-    assert!(player_y > 0.0, "player did not tunnel through the floor (y = {player_y})");
-    println!("[ok] 240 ticks: player grounded at y = {player_y:.3}, mode = {}", mover.mode);
+    let py = player_pos(&app, player).y;
+    assert!(mover.state.grounded, "player settled on the floor (y = {py})");
+    assert!(py > 0.0, "player did not tunnel through the floor (y = {py})");
+    println!("[ok] 240 ticks: player grounded at y = {py:.3}, mode = {}", mover.mode);
 
-    let cam_end = app.world.get::<soxide_engine::render::SceneEntity>(camera).unwrap().transform.translation;
-    assert!(
-        (cam_end - cam_start).length() > 0.5,
-        "camera rig moved to follow the possessed pawn ({cam_start:?} -> {cam_end:?})",
-    );
+    let cam_end = player_pos(&app, camera);
+    assert!((cam_end - cam_start).length() > 0.5, "camera rig followed the pawn");
     println!("[ok] camera rig followed possession: {cam_start:?} -> {cam_end:?}");
+    assert_eq!(coins_alive(&app), 3, "coins intact while the player is out of range");
 
-    // The gameplay script (game.rhai) ran each tick without panicking;
-    // the player spawns far from every coin, so none were collected.
-    assert_eq!(coins_alive(&app), 3, "coins survive when the player is out of range");
-    println!("[ok] game.rhai ran over {} ticks (coins intact)", 240);
+    // 5b. THE REGRESSION TEST for "the character doesn't move": hold W
+    //     (MoveForward). The gameplay script must read the input action
+    //     and drive the mover forward (-Z). This is exactly the path
+    //     that was broken (script not loaded + Swizzle modifier dead).
+    let z_before = player_pos(&app, player).z;
+    for _ in 0..45 {
+        if let Some(input) = app.world.get_resource_mut::<Input>() {
+            input.feed_key(KeyCode::W, ButtonState::Pressed);
+        }
+        app.schedule.run(&mut app.world);
+    }
+    let after = player_pos(&app, player);
+    assert!(
+        after.z < z_before - 0.5,
+        "holding W must move the player forward (-Z): z {z_before:.2} -> {:.2}",
+        after.z,
+    );
+    println!("[ok] input drives movement: holding W moved player z {z_before:.2} -> {:.2}", after.z);
 
     println!("\nALL HEADLESS CHECKS PASSED");
 }
