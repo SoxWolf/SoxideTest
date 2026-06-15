@@ -1,0 +1,33 @@
+// gameplay — the active input mapping context (UE5 IMC flavoured).
+// Registered by name (the file stem, "gameplay") on project load, then
+// activated at startup by contents/scripts/input_setup.rhai.
+//
+// WASD feeds the Move Axis2D; per-key modifiers route each key onto the
+// right axis/sign:
+//   D -> +x (right)            : no modifier
+//   A -> -x (left)             : Negate x
+//   W -> +y (forward)          : Swizzle YXZ (x -> y)
+//   S -> -y (backward)         : Swizzle YXZ, then Negate y
+// Space drives Jump. Mouse X/Y drive Look (Y swizzled onto the y axis).
+(
+    mappings: [
+        (action: "Move", key: Key(D)),
+        (action: "Move", key: Key(A), modifiers: [
+            (kind: "Negate", params: (x: true, y: false, z: false)),
+        ]),
+        (action: "Move", key: Key(W), modifiers: [
+            (kind: "Swizzle", params: (order: YXZ)),
+        ]),
+        (action: "Move", key: Key(S), modifiers: [
+            (kind: "Swizzle", params: (order: YXZ)),
+            (kind: "Negate", params: (x: false, y: true, z: false)),
+        ]),
+
+        (action: "Jump", key: Key(Space)),
+
+        (action: "Look", key: MouseAxis(X)),
+        (action: "Look", key: MouseAxis(Y), modifiers: [
+            (kind: "Swizzle", params: (order: YXZ)),
+        ]),
+    ],
+)

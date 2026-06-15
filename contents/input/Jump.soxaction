@@ -1,0 +1,10 @@
+// Jump — a Bool action. The `Pressed` trigger fires once on the press
+// edge, so holding the key doesn't re-trigger; the MoverInputBinding
+// turns a triggered frame into a single jump edge on the mover.
+(
+    name: "Jump",
+    value_kind: Bool,
+    triggers: [
+        (kind: "Pressed"),
+    ],
+)

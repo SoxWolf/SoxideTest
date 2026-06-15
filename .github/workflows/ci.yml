@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  # Make cargo fetch git dependencies with the git CLI so the
+  # credential rewrite below (insteadOf) is honoured.
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # `soxide-engine` is a PRIVATE git dependency. The default
+      # GITHUB_TOKEN can't read another repo, so this needs a PAT with
+      # read access to SoxWolf/Soxide, stored as the repo/org secret
+      # `ENGINE_TOKEN` (Settings -> Secrets and variables -> Actions).
+      # Without it, `cargo fetch` fails with an authentication error.
+      - name: Authenticate to the private engine repo
+        env:
+          ENGINE_TOKEN: ${{ secrets.ENGINE_TOKEN }}
+        run: |
+          if [ -z "$ENGINE_TOKEN" ]; then
+            echo "::error::ENGINE_TOKEN secret is not set; cannot fetch the private soxide-engine dependency."
+            echo "Add a PAT with read access to SoxWolf/Soxide as the 'ENGINE_TOKEN' Actions secret."
+            exit 1
+          fi
+          git config --global url."https://x-access-token:${ENGINE_TOKEN}@github.com/".insteadOf "https://github.com/"
+
+      # libudev is needed by `gilrs` (gamepad support) in the platform crate.
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev pkg-config
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Headless check
+        run: cargo run --example headless_check

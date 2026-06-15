@@ -1,0 +1,17 @@
+// Soxide project manifest. The runner uses this to set the asset root,
+// window defaults, and the scene to auto-load on startup. Paths are
+// relative to this file (contents_path) or to contents_path
+// (default_scene).
+(
+    name: "Sausage Playground",
+    version: "0.1.0",
+    contents_path: "contents",
+    default_scene: Some("scenes/main.soxscene"),
+    window: (
+        title: "Sausage Playground",
+        width: 1280,
+        height: 720,
+        resizable: true,
+        vsync: true,
+    ),
+)

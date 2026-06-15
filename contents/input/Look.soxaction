@@ -1,0 +1,7 @@
+// Look — an Axis2D action (x = yaw, y = pitch). Driven by mouse motion
+// (see the gameplay context). The CameraRig's `look_action` reads this
+// to orbit the spring-arm.
+(
+    name: "Look",
+    value_kind: Axis2D,
+)

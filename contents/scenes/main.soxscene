@@ -1,0 +1,276 @@
+// Sausage Playground — main scene (v2 entity-instance format).
+//
+// A flat list of inline entity instances. Each instance's `overrides`
+// is an EntityFile (the same per-component shape as a `.soxentity`).
+// The runner auto-loads this scene on startup (it is the project's
+// `default_scene`).
+(
+    instances: [
+        // --- Camera: third-person spring-arm following player 0 -------
+        (
+            overrides: (
+                name: "Camera",
+                scene_entity: Some((
+                    transform: (
+                        translation: (0.0, 3.0, 8.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (1.0, 1.0, 1.0),
+                    ),
+                )),
+                camera3d: Some((
+                    active: true,
+                    fov_y_radians: 1.047,
+                    z_near: 0.1,
+                    z_far: 1000.0,
+                    clear_color: (0.05, 0.06, 0.08, 1.0),
+                    exposure: 1.0,
+                )),
+                // The rig follows the pawn possessed by the
+                // PlayerController whose player_index matches. The
+                // "Look" Axis2D action orbits the boom (mouse-look).
+                camera_rig: Some((
+                    player_index: 0,
+                    pivot_offset: (0.0, 1.4, 0.0),
+                    arm_length: 6.0,
+                    pitch_deg: -12.0,
+                    follow_rate: 12.0,
+                    look_action: "Look",
+                    look_sensitivity: 0.12,
+                )),
+            ),
+        ),
+
+        // --- Sun (directional light + shadows) ------------------------
+        (
+            overrides: (
+                name: "Sun",
+                directional_light: Some((
+                    direction: (-0.3, -1.0, -0.5),
+                    color: (1.0, 1.0, 0.96),
+                    intensity: 1.0,
+                    cast_shadows: true,
+                    shadow_extent: 20.0,
+                    shadow_distance: 80.0,
+                )),
+            ),
+        ),
+
+        // --- Ambient fill ---------------------------------------------
+        (
+            overrides: (
+                name: "Ambient",
+                ambient_light: Some((
+                    color: (0.6, 0.7, 1.0),
+                    intensity: 0.2,
+                )),
+            ),
+        ),
+
+        // --- Ground: a 20 x 1 x 20 static box -------------------------
+        // Unit-cube mesh scaled to size; the collider's half-extents are
+        // scaled by the entity's world scale at creation, so 0.5 * 20 =
+        // a 10 m half-extent (20 m wide) floor with its top at y = 0.
+        // The inline PBR material tints the built-in cube.
+        (
+            overrides: (
+                name: "Ground",
+                scene_entity: Some((
+                    transform: (
+                        translation: (0.0, -0.5, 0.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (20.0, 1.0, 20.0),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (0.30, 0.34, 0.30, 1.0), metallic: 0.0, roughness: 0.95))],
+                )),
+                rigid_body: Some((kind: Fixed, mass: 0.0)),
+                collider: Some((
+                    shape: Cuboid(half_extents: (0.5, 0.5, 0.5)),
+                    restitution: 0.0,
+                    friction: 0.9,
+                    sensor: false,
+                )),
+            ),
+        ),
+
+        // --- Ramp: a tilted static box (~20 deg about X) --------------
+        // Below the mover's 45 deg default slope limit, so the character
+        // can walk up it. Rotation quat = X-axis rotation of 20 deg
+        // (sin(10 deg), 0, 0, cos(10 deg)).
+        (
+            overrides: (
+                name: "Ramp",
+                scene_entity: Some((
+                    transform: (
+                        translation: (0.0, 0.6, -5.0),
+                        rotation: (0.17365, 0.0, 0.0, 0.98481),
+                        scale: (6.0, 0.5, 6.0),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (0.45, 0.38, 0.30, 1.0), metallic: 0.0, roughness: 0.8))],
+                )),
+                rigid_body: Some((kind: Fixed, mass: 0.0)),
+                collider: Some((
+                    shape: Cuboid(half_extents: (0.5, 0.5, 0.5)),
+                    restitution: 0.0,
+                    friction: 0.9,
+                    sensor: false,
+                )),
+            ),
+        ),
+
+        // --- Player pawn: the skinned sausage -------------------------
+        // Carries the body: a skinned mesh (the engine's test sausage
+        // FBX), a CharacterMover (kinematic collide-and-slide; owns its
+        // own capsule), and the MoverInputBinding that turns the Move /
+        // Jump actions into movement intent. Tagged "Player" so the
+        // PlayerController below auto-possesses it.
+        (
+            overrides: (
+                name: "Player",
+                tags: ["Player"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (0.0, 1.0, 4.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (1.0, 1.0, 1.0),
+                    ),
+                )),
+                mesh3d: Some((mesh_path: Some("meshes/sausage.fbx"))),
+                character_mover: Some(()),
+                mover_input: Some((
+                    move_action: "Move",
+                    jump_action: "Jump",
+                    camera_relative: true,
+                )),
+            ),
+        ),
+
+        // --- Player controller: the brain -----------------------------
+        // Possesses the "Player"-tagged pawn by tag (entity ids aren't
+        // stable on disk; gameplay tags are). The CameraRig follows
+        // whatever this controller possesses.
+        (
+            overrides: (
+                name: "PlayerController",
+                player_controller: Some((
+                    player_index: 0,
+                    auto_possess_tag: "Player",
+                )),
+            ),
+        ),
+
+        // --- Moving platform -----------------------------------------
+        // A Kinematic box: game.rhai sweeps it side to side via
+        // set_translation each frame; physics syncs the kinematic
+        // collider so the character collides with it where it is drawn.
+        (
+            overrides: (
+                name: "Platform",
+                tags: ["Platform"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (0.0, 1.0, -1.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (3.0, 0.4, 2.0),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (0.25, 0.45, 0.7, 1.0), metallic: 0.1, roughness: 0.6))],
+                )),
+                rigid_body: Some((kind: Kinematic, mass: 0.0)),
+                collider: Some((
+                    shape: Cuboid(half_extents: (0.5, 0.5, 0.5)),
+                    restitution: 0.0,
+                    friction: 0.9,
+                    sensor: false,
+                )),
+            ),
+        ),
+
+        // --- Enemy: a simple AI chaser -------------------------------
+        // Its own CharacterMover (body) + an AiController marker (brain).
+        // game.rhai steers it toward the player each frame with
+        // mover_input(); catching the player respawns them.
+        (
+            overrides: (
+                name: "Enemy",
+                tags: ["Enemy"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (6.0, 1.0, -6.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (1.0, 1.0, 1.0),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (0.8, 0.15, 0.15, 1.0), metallic: 0.0, roughness: 0.5))],
+                )),
+                character_mover: Some((settings: (max_speed: 3.5))),
+                ai_controller: Some(()),
+            ),
+        ),
+
+        // --- Collectible coins ----------------------------------------
+        // Gold cubes tagged "Coin". game.rhai picks them up by proximity
+        // to the player and shows the count on the HUD. No collider:
+        // pickup is distance-based, so the character passes through.
+        (
+            overrides: (
+                name: "Coin1",
+                tags: ["Coin"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (3.0, 0.8, 2.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (0.3, 0.3, 0.3),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (1.0, 0.84, 0.0, 1.0), metallic: 1.0, roughness: 0.3))],
+                )),
+            ),
+        ),
+        (
+            overrides: (
+                name: "Coin2",
+                tags: ["Coin"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (-3.5, 0.8, 0.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (0.3, 0.3, 0.3),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (1.0, 0.84, 0.0, 1.0), metallic: 1.0, roughness: 0.3))],
+                )),
+            ),
+        ),
+        (
+            overrides: (
+                name: "Coin3",
+                tags: ["Coin"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (0.0, 2.6, -6.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (0.3, 0.3, 0.3),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (1.0, 0.84, 0.0, 1.0), metallic: 1.0, roughness: 0.3))],
+                )),
+            ),
+        ),
+    ],
+)
