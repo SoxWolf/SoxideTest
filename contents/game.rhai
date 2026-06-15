@@ -1,33 +1,17 @@
 // Sausage Playground — gameplay logic.
 //
-// IMPORTANT: this file lives in the contents ROOT, not a subfolder —
-// the engine's script loader (`Scripts::load_dir`) is non-recursive and
-// is pointed at `contents/`, so a script in `contents/scripts/` would
-// never load.
+// IMPORTANT engine quirks this file works around:
+//
+//  * The script loader (`Scripts::load_dir`) is non-recursive and points
+//    at `contents/`, so this script must live in the contents ROOT.
+//  * Script functions are invoked via `call_fn`, which does NOT execute
+//    top-level statements — so top-level `const` / `let` are invisible
+//    inside `fn` bodies ("Variable not found"). Tunables therefore live
+//    as locals inside `update()`.
 //
 // `start()` runs once; `update(dt)` runs every frame. The engine's
 // built-in systems handle the mover step, possession, physics and the
-// follow camera; this script adds the game layer:
-//
-//   - activates the "gameplay" input mapping context (loaded inactive);
-//   - drives the player from the four directional Bool actions
-//     (composed here because the engine's on-disk Swizzle modifier,
-//     which an Axis2D WASD map would need, doesn't round-trip);
-//   - collects coins by proximity;
-//   - steers the enemy chaser and respawns the player if caught or fallen;
-//   - sweeps the moving platform; draws a HUD.
-
-const SPAWN_X = 0.0;
-const SPAWN_Y = 1.0;
-const SPAWN_Z = 4.0;
-const FALL_Y = -8.0;
-const PICKUP = 1.2;
-const CATCH = 1.1;
-const TOTAL_COINS = 3;
-
-fn respawn(player) {
-    set_translation(player, SPAWN_X, SPAWN_Y, SPAWN_Z);
-}
+// follow camera; this script adds the game layer.
 
 fn start() {
     add_input_context("gameplay", 0);
@@ -35,9 +19,17 @@ fn start() {
 }
 
 fn update(dt) {
+    // Tunables (locals — see the note above re: top-level const).
+    let spawn_x = 0.0;
+    let spawn_y = 1.0;
+    let spawn_z = 4.0;
+    let fall_y = -8.0;
+    let pickup2 = 1.2 * 1.2;   // squared pickup radius
+    let catch2 = 1.1 * 1.1;    // squared enemy-catch radius
+    let total_coins = 3;
+
     let player = find_by_name("Player");
     if player == 0 || !is_alive(player) { return; }
-
     let p = get_translation(player);
     if p.is_empty() { return; }
 
@@ -56,17 +48,16 @@ fn update(dt) {
     if action_triggered("Jump") { mover_jump(player); }
 
     // --- Respawn on fall.
-    if p[1] < FALL_Y { respawn(player); }
+    if p[1] < fall_y { set_translation(player, spawn_x, spawn_y, spawn_z); }
 
     // --- Coin pickup (distance-based; coins are tagged "Coin").
-    let coins = entities_with_tag("Coin");
-    for c in coins {
+    for c in entities_with_tag("Coin") {
         let cp = get_translation(c);
         if cp.is_empty() { continue; }
         let dx = cp[0] - p[0];
         let dy = cp[1] - p[1];
         let dz = cp[2] - p[2];
-        if dx * dx + dy * dy + dz * dz < PICKUP * PICKUP {
+        if dx * dx + dy * dy + dz * dz < pickup2 {
             despawn(c);
         }
     }
@@ -78,15 +69,16 @@ fn update(dt) {
         if !e.is_empty() {
             let dx = p[0] - e[0];
             let dz = p[2] - e[2];
-            let d = (dx * dx + dz * dz).sqrt();
+            let d2 = dx * dx + dz * dz;
+            let d = d2.sqrt();
             if d > 0.001 { mover_input(enemy, dx / d, dz / d); }
-            if d < CATCH { respawn(player); }
+            if d2 < catch2 { set_translation(player, spawn_x, spawn_y, spawn_z); }
         }
     }
 
     // --- HUD.
-    let collected = TOTAL_COINS - entities_with_tag("Coin").len();
-    hud_text(20.0, 20.0, 24.0, `Coins: ${collected} / ${TOTAL_COINS}`);
+    let collected = total_coins - entities_with_tag("Coin").len();
+    hud_text(20.0, 20.0, 24.0, `Coins: ${collected} / ${total_coins}`);
     let v = mover_velocity(player);
     if !v.is_empty() {
         let speed = (v[0] * v[0] + v[2] * v[2]).sqrt();
@@ -94,8 +86,8 @@ fn update(dt) {
     }
     hud_text(20.0, 74.0, 16.0, "WASD move - Space jump - mouse look - dodge the red chaser");
 
-    // --- Sweep the moving platform (last, so a math hiccup can't block
-    // the gameplay above). Frozen in headless runs (time_elapsed() == 0).
+    // --- Sweep the moving platform (last, so a hiccup can't block the
+    // gameplay above). Frozen in headless runs (time_elapsed() == 0).
     let plat = find_by_name("Platform");
     if plat != 0 && is_alive(plat) {
         set_translation(plat, sin(time_elapsed()) * 3.0, 1.0, -1.0);

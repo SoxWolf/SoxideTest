@@ -156,5 +156,24 @@ fn main() {
     );
     println!("[ok] input drives movement: holding W moved player z {z_before:.2} -> {:.2}", after.z);
 
+    // 5c. Exercise update() PAST the early-return region: teleport the
+    //     player onto a coin and confirm the script collects it. This
+    //     guards against script runtime errors in update() (e.g. the
+    //     top-level-const bug that aborted update before this code ran).
+    let coin = find(&app, "Coin1");
+    let coin_pos = player_pos(&app, coin);
+    app.world.get_mut::<SceneEntity>(player).unwrap().transform.translation = coin_pos;
+    let before = coins_alive(&app);
+    for _ in 0..3 {
+        app.schedule.run(&mut app.world);
+    }
+    assert!(
+        coins_alive(&app) < before,
+        "game.rhai update() must run past its early sections and collect the coin \
+         (a script error would leave it: {before} coins before, {} after)",
+        coins_alive(&app),
+    );
+    println!("[ok] script update() runs fully: coin collected on contact ({before} -> {})", coins_alive(&app));
+
     println!("\nALL HEADLESS CHECKS PASSED");
 }
