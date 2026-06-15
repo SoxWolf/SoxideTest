@@ -13,9 +13,9 @@
 //!
 //! Run with: `cargo run --example headless_check`
 
-use soxide_engine::gameplay::{CameraRig, MoverInputBinding, PlayerController};
+use soxide_engine::gameplay::{AiController, CameraRig, MoverInputBinding, PlayerController};
 use soxide_engine::input::{InputActionFile, InputContextFile};
-use soxide_engine::physics::{Collider, CharacterMover};
+use soxide_engine::physics::{BodyKind, CharacterMover, Collider, RigidBody};
 use soxide_engine::render::{AmbientLight, Camera3d, DirectionalLight};
 use soxide_engine::ecs::Entity;
 use soxide_engine::{App, EntityName, Project, Scene};
@@ -62,7 +62,7 @@ fn main() {
     // 3. Scene parse.
     let scene_path = contents.join("scenes/main.soxscene");
     let scene = Scene::load(&scene_path).expect("scene parses");
-    assert_eq!(scene.instances.len(), 10, "expected 10 entity instances");
+    assert_eq!(scene.instances.len(), 12, "expected 12 entity instances");
     let coin_instances = scene
         .instances
         .iter()
@@ -123,7 +123,23 @@ fn main() {
             .count()
     };
     assert_eq!(coins_alive(&app), 3, "three coins spawned");
-    println!("[ok] component stack assembled (pawn / controller / camera / terrain / lights / 3 coins)");
+
+    let platform = find(&app, "Platform");
+    assert!(app.world.get::<Collider>(platform).is_some(), "platform has a collider");
+    assert!(
+        matches!(app.world.get::<RigidBody>(platform).map(|b| b.kind), Some(BodyKind::Kinematic)),
+        "platform is a kinematic body",
+    );
+
+    let enemy = find(&app, "Enemy");
+    assert!(app.world.get::<AiController>(enemy).is_some(), "enemy has an AiController");
+    assert!(app.world.get::<CharacterMover>(enemy).is_some(), "enemy has a CharacterMover");
+    println!("[ok] component stack assembled (pawn / controller / camera / terrain / lights / 3 coins / platform / enemy)");
+
+    // Despawn the enemy before the physics loop: it chases and respawns
+    // the player on contact, which would make the grounded assertion
+    // below nondeterministic. Its components were already verified above.
+    app.world.despawn(enemy);
 
     // 5. Run the schedule: auto-possess + physics + camera rig.
     // Without the platform runner advancing `Time` each frame its delta

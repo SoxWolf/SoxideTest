@@ -164,6 +164,59 @@
             ),
         ),
 
+        // --- Moving platform -----------------------------------------
+        // A Kinematic box: game.rhai sweeps it side to side via
+        // set_translation each frame; physics syncs the kinematic
+        // collider so the character collides with it where it is drawn.
+        (
+            overrides: (
+                name: "Platform",
+                tags: ["Platform"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (0.0, 1.0, -1.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (3.0, 0.4, 2.0),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (0.25, 0.45, 0.7, 1.0), metallic: 0.1, roughness: 0.6))],
+                )),
+                rigid_body: Some((kind: Kinematic, mass: 0.0)),
+                collider: Some((
+                    shape: Cuboid(half_extents: (0.5, 0.5, 0.5)),
+                    restitution: 0.0,
+                    friction: 0.9,
+                    sensor: false,
+                )),
+            ),
+        ),
+
+        // --- Enemy: a simple AI chaser -------------------------------
+        // Its own CharacterMover (body) + an AiController marker (brain).
+        // game.rhai steers it toward the player each frame with
+        // mover_input(); catching the player respawns them.
+        (
+            overrides: (
+                name: "Enemy",
+                tags: ["Enemy"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (6.0, 1.0, -6.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (1.0, 1.0, 1.0),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (0.8, 0.15, 0.15, 1.0), metallic: 0.0, roughness: 0.5))],
+                )),
+                character_mover: Some((settings: (max_speed: 3.5))),
+                ai_controller: Some(()),
+            ),
+        ),
+
         // --- Collectible coins ----------------------------------------
         // Gold cubes tagged "Coin". game.rhai picks them up by proximity
         // to the player and shows the count on the HUD. No collider:
