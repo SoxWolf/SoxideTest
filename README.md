@@ -19,6 +19,9 @@ playable character stack entirely from plain-text, diffable assets.
 | **PlayerController** | possesses the `Player`-tagged pawn by tag (`auto_possess_tag`) |
 | **Camera** | `Camera3d` + a third-person `CameraRig` spring-arm that follows player 0 and orbits on the `Look` action |
 | **Sun** / **Ambient** | a shadow-casting directional light + ambient fill |
+| **Coin1–3** | gold cubes tagged `Coin`, collected by proximity (see `game.rhai`) |
+
+The ground, ramp and coins use inline PBR materials.
 
 The Controller → Pawn split is UE-flavoured: the **controller** is the
 brain (possession), the **pawn** is the body (mover + mesh), and the
@@ -31,7 +34,7 @@ Authored as Enhanced-Input assets under `contents/input/`:
 - `Move.soxaction` (Axis2D), `Jump.soxaction` (Bool, `Pressed`), `Look.soxaction` (Axis2D)
 - `gameplay.soxinputcontext` binds **WASD** → Move, **Space** → Jump, **mouse** → Look
 
-Contexts load inactive; `contents/scripts/input_setup.rhai` activates
+Contexts load inactive; `contents/scripts/game.rhai` activates
 `gameplay` at startup with one `add_input_context("gameplay", 0)` call.
 
 | Action | Keys |
@@ -39,6 +42,16 @@ Contexts load inactive; `contents/scripts/input_setup.rhai` activates
 | Move | `W` `A` `S` `D` (camera-relative) |
 | Jump | `Space` |
 | Look | Mouse |
+
+## Gameplay script
+
+`contents/scripts/game.rhai` is the thin game layer on top of the
+engine's built-in systems (movement, possession, physics, follow
+camera). Each frame it:
+
+- collects coins within ~1.2 m of the player (by tag + distance);
+- respawns the player if it falls below `y = -8`;
+- draws a HUD (coins collected, speed, movement mode, controls).
 
 ## Build & run
 
@@ -64,6 +77,6 @@ contents/
 ├── scenes/main.soxscene        the scene above
 ├── input/*.soxaction           Move / Jump / Look actions
 ├── input/gameplay.soxinputcontext   key bindings
-├── scripts/input_setup.rhai    activates the input context
+├── scripts/game.rhai           input activation + coins + HUD + respawn
 └── meshes/sausage.fbx          the player mesh (from the engine's test data)
 ```

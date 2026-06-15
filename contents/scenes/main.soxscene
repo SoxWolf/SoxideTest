@@ -70,6 +70,7 @@
         // Unit-cube mesh scaled to size; the collider's half-extents are
         // scaled by the entity's world scale at creation, so 0.5 * 20 =
         // a 10 m half-extent (20 m wide) floor with its top at y = 0.
+        // The inline PBR material tints the built-in cube.
         (
             overrides: (
                 name: "Ground",
@@ -80,7 +81,10 @@
                         scale: (20.0, 1.0, 20.0),
                     ),
                 )),
-                mesh3d: Some((mesh_path: None)),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (0.30, 0.34, 0.30, 1.0), metallic: 0.0, roughness: 0.95))],
+                )),
                 rigid_body: Some((kind: Fixed, mass: 0.0)),
                 collider: Some((
                     shape: Cuboid(half_extents: (0.5, 0.5, 0.5)),
@@ -105,7 +109,10 @@
                         scale: (6.0, 0.5, 6.0),
                     ),
                 )),
-                mesh3d: Some((mesh_path: None)),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (0.45, 0.38, 0.30, 1.0), metallic: 0.0, roughness: 0.8))],
+                )),
                 rigid_body: Some((kind: Fixed, mass: 0.0)),
                 collider: Some((
                     shape: Cuboid(half_extents: (0.5, 0.5, 0.5)),
@@ -153,6 +160,62 @@
                 player_controller: Some((
                     player_index: 0,
                     auto_possess_tag: "Player",
+                )),
+            ),
+        ),
+
+        // --- Collectible coins ----------------------------------------
+        // Gold cubes tagged "Coin". game.rhai picks them up by proximity
+        // to the player and shows the count on the HUD. No collider:
+        // pickup is distance-based, so the character passes through.
+        (
+            overrides: (
+                name: "Coin1",
+                tags: ["Coin"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (3.0, 0.8, 2.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (0.3, 0.3, 0.3),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (1.0, 0.84, 0.0, 1.0), metallic: 1.0, roughness: 0.3))],
+                )),
+            ),
+        ),
+        (
+            overrides: (
+                name: "Coin2",
+                tags: ["Coin"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (-3.5, 0.8, 0.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (0.3, 0.3, 0.3),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (1.0, 0.84, 0.0, 1.0), metallic: 1.0, roughness: 0.3))],
+                )),
+            ),
+        ),
+        (
+            overrides: (
+                name: "Coin3",
+                tags: ["Coin"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (0.0, 2.6, -6.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (0.3, 0.3, 0.3),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (1.0, 0.84, 0.0, 1.0), metallic: 1.0, roughness: 0.3))],
                 )),
             ),
         ),

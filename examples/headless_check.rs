@@ -62,7 +62,13 @@ fn main() {
     // 3. Scene parse.
     let scene_path = contents.join("scenes/main.soxscene");
     let scene = Scene::load(&scene_path).expect("scene parses");
-    assert_eq!(scene.instances.len(), 7, "expected 7 entity instances");
+    assert_eq!(scene.instances.len(), 10, "expected 10 entity instances");
+    let coin_instances = scene
+        .instances
+        .iter()
+        .filter(|i| i.overrides.tags.iter().any(|t| t == "Coin"))
+        .count();
+    assert_eq!(coin_instances, 3, "three collectible coins");
     let player_inst = scene
         .instances
         .iter()
@@ -104,7 +110,20 @@ fn main() {
     }
     assert!(app.world.get::<DirectionalLight>(find(&app, "Sun")).is_some(), "sun light");
     assert!(app.world.get::<AmbientLight>(find(&app, "Ambient")).is_some(), "ambient light");
-    println!("[ok] component stack assembled (pawn / controller / camera / terrain / lights)");
+
+    let coins_alive = |app: &App| {
+        app.world
+            .iter_entities()
+            .filter(|&e| {
+                app.world
+                    .get::<EntityName>(e)
+                    .map(|n| n.0.starts_with("Coin"))
+                    .unwrap_or(false)
+            })
+            .count()
+    };
+    assert_eq!(coins_alive(&app), 3, "three coins spawned");
+    println!("[ok] component stack assembled (pawn / controller / camera / terrain / lights / 3 coins)");
 
     // 5. Run the schedule: auto-possess + physics + camera rig.
     // Without the platform runner advancing `Time` each frame its delta
@@ -134,6 +153,11 @@ fn main() {
         "camera rig moved to follow the possessed pawn ({cam_start:?} -> {cam_end:?})",
     );
     println!("[ok] camera rig followed possession: {cam_start:?} -> {cam_end:?}");
+
+    // The gameplay script (game.rhai) ran each tick without panicking;
+    // the player spawns far from every coin, so none were collected.
+    assert_eq!(coins_alive(&app), 3, "coins survive when the player is out of range");
+    println!("[ok] game.rhai ran over {} ticks (coins intact)", 240);
 
     println!("\nALL HEADLESS CHECKS PASSED");
 }
