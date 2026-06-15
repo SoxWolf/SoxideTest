@@ -1,0 +1,8 @@
+// MoveLeft — a Bool action (one key). The gameplay script reads the four
+// directional actions and composes the movement vector, since the
+// engine's on-disk Swizzle modifier (which an Axis2D WASD mapping would
+// need) does not round-trip in this engine version.
+(
+    name: "MoveLeft",
+    value_kind: Bool,
+)
