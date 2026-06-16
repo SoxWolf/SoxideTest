@@ -20,8 +20,8 @@ playable character stack entirely from plain-text, diffable assets.
 | **Camera** | `Camera3d` + a third-person `CameraRig` spring-arm that follows player 0 and orbits on the `Look` action |
 | **Sun** / **Ambient** | a shadow-casting directional light + ambient fill |
 | **Coin1–3** | gold cubes tagged `Coin`, collected by proximity (see `game.rhai`) |
-| **Platform** | a `Kinematic` box swept side-to-side by `game.rhai`; the character collides with it where it's drawn |
-| **Enemy** | a red chaser — its own `CharacterMover` + an `AiController` marker, steered toward the player by `game.rhai` |
+| **Platform** | a `Kinematic` box off to the right (x=6), slid along Z by `game.rhai`; hoppable, out of the spawn→ramp path |
+| **Enemy** | a slow red chaser (`CharacterMover` + `AiController`) steered by `game.rhai`; non-lethal — on contact *it* is sent home, never the player |
 
 The ground, ramp, coins, platform and enemy use inline PBR materials.
 
@@ -64,9 +64,9 @@ loader is non-recursive. Each frame it:
 
 - drives the player from the four directional actions (`mover_input`) + jump;
 - collects coins within ~1.2 m of the player (by tag + distance);
-- steers the enemy toward the player and respawns the player if caught;
-- sweeps the moving platform (`set_translation`);
-- respawns the player if it falls below `y = -8`;
+- steers the enemy toward the player; on contact the **enemy** is sent home (non-lethal — it never resets the player);
+- slides the moving platform along Z, off to the side (`set_translation`);
+- respawns the player only if it falls below `y = -8`;
 - draws a HUD (coins collected, speed, movement mode, controls).
 
 ## Build & run
