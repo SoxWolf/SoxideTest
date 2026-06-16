@@ -180,5 +180,32 @@ fn main() {
     );
     println!("[ok] script update() runs fully: coin collected on contact ({before} -> {})", coins_alive(&app));
 
+    // 5d. Ramp climb: drop the player just in front of the ramp and hold
+    //     W; the mover must walk it UP (y rises), proving the reshaped
+    //     ~14° slope is actually walkable.
+    if let Some(input) = app.world.get_resource_mut::<Input>() {
+        input.feed_key(KeyCode::W, ButtonState::Released);
+    }
+    app.world.get_mut::<SceneEntity>(player).unwrap().transform.translation =
+        soxide_engine::core::glam::DVec3::new(0.0, 1.0, 0.8);
+    for _ in 0..15 {
+        app.schedule.run(&mut app.world); // settle at the ramp foot
+    }
+    let y_foot = player_pos(&app, player).y;
+    for _ in 0..90 {
+        if let Some(input) = app.world.get_resource_mut::<Input>() {
+            input.feed_key(KeyCode::W, ButtonState::Pressed);
+        }
+        app.schedule.run(&mut app.world);
+    }
+    let top = player_pos(&app, player);
+    assert!(
+        top.y > y_foot + 0.4,
+        "player must climb the ramp (y {y_foot:.2} -> {:.2} at z {:.2})",
+        top.y,
+        top.z,
+    );
+    println!("[ok] ramp is walkable: player climbed y {y_foot:.2} -> {:.2} (z {:.2})", top.y, top.z);
+
     println!("\nALL HEADLESS CHECKS PASSED");
 }

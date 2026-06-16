@@ -27,6 +27,11 @@ fn update(dt) {
     let pickup2 = 1.2 * 1.2;   // squared pickup radius
     let catch2 = 1.1 * 1.1;    // squared enemy-catch radius
     let total_coins = 3;
+    // Enemy home (matches the scene). On a catch we send the enemy back
+    // here too, so it can't sit on the spawn point and re-catch instantly.
+    let enemy_x = 9.0;
+    let enemy_y = 1.0;
+    let enemy_z = -9.0;
 
     let player = find_by_name("Player");
     if player == 0 || !is_alive(player) { return; }
@@ -72,7 +77,10 @@ fn update(dt) {
             let d2 = dx * dx + dz * dz;
             let d = d2.sqrt();
             if d > 0.001 { mover_input(enemy, dx / d, dz / d); }
-            if d2 < catch2 { set_translation(player, spawn_x, spawn_y, spawn_z); }
+            if d2 < catch2 {
+                set_translation(player, spawn_x, spawn_y, spawn_z);
+                set_translation(enemy, enemy_x, enemy_y, enemy_z);
+            }
         }
     }
 
@@ -90,6 +98,7 @@ fn update(dt) {
     // gameplay above). Frozen in headless runs (time_elapsed() == 0).
     let plat = find_by_name("Platform");
     if plat != 0 && is_alive(plat) {
-        set_translation(plat, sin(time_elapsed()) * 3.0, 1.0, -1.0);
+        // Slide along Z at x = 6 (off the spawn->ramp path).
+        set_translation(plat, 6.0, 0.6, sin(time_elapsed()) * 3.0);
     }
 }
