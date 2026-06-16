@@ -120,8 +120,28 @@ fn main() {
     assert!(app.world.get::<CharacterMover>(enemy).is_some(), "enemy CharacterMover");
     println!("[ok] stack assembled + game.rhai loaded (pawn/controller/camera/terrain/lights/coins/platform/enemy)");
 
-    // Despawn the enemy: it chases and respawns the player on contact,
-    // which would make the assertions below nondeterministic. Verified above.
+    // The enemy must be NON-LETHAL: on contact it gets sent home, and the
+    // player is NOT reset to spawn (that was the reset loop). Put the
+    // player away from spawn, sit the enemy on top of it, tick once, and
+    // confirm the player stayed put while the enemy went home.
+    {
+        use soxide_engine::core::glam::DVec3;
+        app.world.get_mut::<SceneEntity>(player).unwrap().transform.translation = DVec3::new(3.0, 1.0, 4.0);
+        app.world.get_mut::<SceneEntity>(enemy).unwrap().transform.translation = DVec3::new(3.0, 1.0, 4.4);
+        app.schedule.run(&mut app.world);
+        let pp = player_pos(&app, player);
+        assert!(
+            (pp.x - 3.0).abs() < 1.0 && pp.z > 2.0,
+            "enemy contact must NOT reset the player to spawn (player now at {pp:?})",
+        );
+        assert!(player_pos(&app, enemy).z < -5.0, "enemy sent home on contact");
+        // Put the player back at spawn so the later phases are unaffected.
+        app.world.get_mut::<SceneEntity>(player).unwrap().transform.translation = DVec3::new(0.0, 1.0, 4.0);
+        println!("[ok] enemy is non-lethal: contact sends it home, player not reset");
+    }
+
+    // Despawn the enemy so the physics/ramp assertions below are
+    // deterministic (it would otherwise wander into them).
     app.world.despawn(enemy);
 
     // 5a. Settle: no input. Drop Time so mover/physics use a fixed 1/60

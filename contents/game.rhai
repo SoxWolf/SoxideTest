@@ -77,10 +77,10 @@ fn update(dt) {
             let d2 = dx * dx + dz * dz;
             let d = d2.sqrt();
             if d > 0.001 { mover_input(enemy, dx / d, dz / d); }
-            if d2 < catch2 {
-                set_translation(player, spawn_x, spawn_y, spawn_z);
-                set_translation(enemy, enemy_x, enemy_y, enemy_z);
-            }
+            // Non-lethal: on contact the enemy is just sent home. The
+            // player is NEVER reset by the enemy (that caused a reset
+            // loop). The only respawn is falling off the world, above.
+            if d2 < catch2 { set_translation(enemy, enemy_x, enemy_y, enemy_z); }
         }
     }
 
