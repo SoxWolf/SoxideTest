@@ -35,7 +35,9 @@
                     pitch_deg: -12.0,
                     follow_rate: 12.0,
                     look_action: "Look",
-                    look_sensitivity: 0.12,
+                    // Degrees of yaw per pixel of mouse motion. Tweak to
+                    // taste (higher = faster turn within the window).
+                    look_sensitivity: 0.1,
                 )),
             ),
         ),
