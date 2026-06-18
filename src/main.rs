@@ -21,13 +21,44 @@ use std::path::PathBuf;
 
 fn main() {
     let proj = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sausage_playground.soxproj");
-    let app = match App::from_project_file(&proj) {
+    let mut app = match App::from_project_file(&proj) {
         Ok(a) => a,
         Err(e) => {
             eprintln!("failed to load project {}: {e}", proj.display());
             std::process::exit(1);
         }
     };
+
+    // Turn on navmesh generation. `App::new` pre-inserts an (empty,
+    // auto-build off) `NavMeshResource`; here we declare the agent
+    // profiles to bake a navmesh for and flip `auto_build` so
+    // `nav_maintenance_tick` (re)generates the mesh from the level's
+    // collision geometry whenever it is missing or dirty. Two profiles
+    // give two per-agent navmeshes: "default" matches the demo agent's
+    // body, "wide" keeps a larger berth from the walls.
+    if let Some(nav) = app
+        .world
+        .get_resource_mut::<soxide_engine::gameplay::NavMeshResource>()
+    {
+        use soxide_engine::gameplay::AgentProfile;
+        nav.profiles = vec![
+            AgentProfile {
+                name: "default".into(),
+                radius: 0.5,
+                height: 1.8,
+                max_step: 0.4,
+                max_slope_deg: 50.0,
+            },
+            AgentProfile {
+                name: "wide".into(),
+                radius: 1.0,
+                height: 1.8,
+                max_step: 0.4,
+                max_slope_deg: 50.0,
+            },
+        ];
+        nav.auto_build = true;
+    }
 
     #[cfg(target_os = "linux")]
     use soxide_platform_linux as platform;

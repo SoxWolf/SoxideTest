@@ -1,41 +1,57 @@
-// Sausage Playground — main scene (v2 entity-instance format).
+// Soxide Navmesh Demo — main scene (v2 entity-instance format).
 //
-// A flat list of inline entity instances. Each instance's `overrides`
-// is an EntityFile (the same per-component shape as a `.soxentity`).
-// The runner auto-loads this scene on startup (it is the project's
-// `default_scene`).
+// A character routes from one side of a wall to the other WITHOUT going
+// through it, using the engine's navmesh navigation
+// (`soxide_engine::gameplay::nav`):
+//
+//   * The floor is a static `Collider` cuboid. `nav_maintenance_tick`
+//     triangulates it into the navmesh input (see `collect_nav_triangles`),
+//     so the walkable surface is generated straight from level geometry.
+//   * Each wall segment is a `NavObstacle` that carves its footprint out
+//     of the navmesh, leaving the gap between them as the only way across.
+//     (Walls are obstacles rather than colliders because this build is
+//     single-floor: a solid box's flat top is itself walkable, so a
+//     collider wall would not block horizontal routing. Carving is the
+//     blocking primitive — the same approach the engine's own nav
+//     verification scene uses.)
+//   * Each agent has a `CharacterMover` (its body) + a `NavAgent` (the
+//     path follower). `NavAgent` resolves its goal, queries the navmesh
+//     for its `profile`, and writes `MoveIntent.dir` on the mover, so the
+//     existing kinematic mover walks the funnelled corridor.
+//   * Two profiles show per-agent navmeshes: "default" (radius 0.5) and
+//     "wide" (radius 1.0). The wide agent keeps a larger berth from the
+//     walls. The profiles + navmesh build are enabled in `src/main.rs`.
+//   * `contents/game.rhai` ping-pongs each agent's goal across the wall
+//     every few seconds so they continuously re-path (a no-op in headless
+//     runs, where `time_elapsed()` is frozen).
+//
+// Layout (looking down, +X right, +Z toward the camera):
+//   walls run along X at z = 0, spanning x in [-10,-2] and [2,10];
+//   the 4 m gap is x in [-2, 2]. Agents start at z = +6 and aim for
+//   z = -6 at the SAME x as their start (behind a wall segment), so the
+//   only route is a detour through the central gap.
 (
     instances: [
-        // --- Camera: third-person spring-arm following player 0 -------
+        // --- Camera: static, elevated, looking down at the arena -------
+        // Eye at (0,18,16) tilted ~45 deg down (rotation = X axis -45 deg)
+        // so it frames the whole 20 x 20 floor and both agents.
         (
             overrides: (
                 name: "Camera",
                 scene_entity: Some((
                     transform: (
-                        translation: (0.0, 3.0, 8.0),
-                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        translation: (0.0, 18.0, 16.0),
+                        rotation: (-0.38268, 0.0, 0.0, 0.92388),
                         scale: (1.0, 1.0, 1.0),
                     ),
                 )),
                 camera3d: Some((
                     active: true,
-                    fov_y_radians: 1.047,
+                    fov_y_radians: 1.1,
                     z_near: 0.1,
                     z_far: 1000.0,
                     clear_color: (0.05, 0.06, 0.08, 1.0),
                     exposure: 1.0,
-                )),
-                // The rig follows the pawn possessed by the
-                // PlayerController whose player_index matches. The
-                // "Look" Axis2D action orbits the boom (mouse-look).
-                camera_rig: Some((
-                    player_index: 0,
-                    pivot_offset: (0.0, 1.4, 0.0),
-                    arm_length: 6.0,
-                    pitch_deg: -12.0,
-                    follow_rate: 12.0,
-                    look_action: "Look",
-                    look_sensitivity: 0.12,
                 )),
             ),
         ),
@@ -61,16 +77,15 @@
                 name: "Ambient",
                 ambient_light: Some((
                     color: (0.6, 0.7, 1.0),
-                    intensity: 0.2,
+                    intensity: 0.25,
                 )),
             ),
         ),
 
-        // --- Ground: a 20 x 1 x 20 static box -------------------------
-        // Unit-cube mesh scaled to size; the collider's half-extents are
-        // scaled by the entity's world scale at creation, so 0.5 * 20 =
-        // a 10 m half-extent (20 m wide) floor with its top at y = 0.
-        // The inline PBR material tints the built-in cube.
+        // --- Ground: a 20 x 1 x 20 static box, top at y = 0 -----------
+        // The collider's half-extents (0.5) are scaled by the entity's
+        // world scale, so this is a 20 m wide floor. It is the walkable
+        // surface the navmesh is generated over.
         (
             overrides: (
                 name: "Ground",
@@ -95,201 +110,166 @@
             ),
         ),
 
-        // --- Ramp: a gentle ~14 deg slope in front of spawn -----------
-        // A thin box (8 m long, 4 m wide) tilted ~14 deg about X. It sits
-        // low enough that its near (thin) edge is buried in the floor, so
-        // the walkable top surface EMERGES from ground level around
-        // z = -1.3 and rises to ~1.6 m at the far edge — no vertical lip
-        // for the character to get stuck on. Well under the mover's
-        // 45 deg slope limit. rotation = X-axis 14 deg.
+        // --- Wall (west segment): x in [-10,-2] ----------------------
+        // A `NavObstacle` carves the wall's footprint out of EVERY agent's
+        // navmesh, so the route must detour to the gap. (The walls are
+        // obstacles, not colliders: this navmesh build is single-floor —
+        // the highest walkable surface per cell wins — so a solid box's
+        // flat top is just walkable floor and would NOT block horizontal
+        // routing. Carving is the engine's blocking primitive; see the
+        // engine's own navmesh verification scene. The floor below stays a
+        // real collider, so the walkable mesh is still generated from
+        // level geometry.) The box `half_extents` are absolute (the
+        // obstacle is placed at the entity's position, unscaled), and the
+        // visible mesh is scaled to match.
         (
             overrides: (
-                name: "Ramp",
+                name: "WallWest",
                 scene_entity: Some((
                     transform: (
-                        translation: (0.0, 0.45, -4.0),
-                        rotation: (0.12187, 0.0, 0.0, 0.99255),
-                        scale: (4.0, 0.4, 8.0),
+                        translation: (-6.0, 1.0, 0.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (8.0, 2.0, 1.0),
                     ),
                 )),
                 mesh3d: Some((
                     mesh_path: None,
-                    materials: [Some((base_color: (0.45, 0.38, 0.30, 1.0), metallic: 0.0, roughness: 0.8))],
+                    materials: [Some((base_color: (0.28, 0.26, 0.32, 1.0), metallic: 0.0, roughness: 0.8))],
                 )),
-                rigid_body: Some((kind: Fixed, mass: 0.0)),
-                collider: Some((
-                    shape: Cuboid(half_extents: (0.5, 0.5, 0.5)),
-                    restitution: 0.0,
-                    friction: 0.9,
-                    sensor: false,
+                nav_obstacle: Some((
+                    shape: Box(half_extents: (4.0, 1.0, 0.5), yaw: 0.0),
                 )),
             ),
         ),
 
-        // --- Player pawn: the skinned sausage -------------------------
-        // The pawn entity carries the body logic: a CharacterMover
-        // (kinematic collide-and-slide; its capsule is ~1.8 m tall, owned
-        // by MoverSettings) and the "Player" tag (so the PlayerController
-        // auto-possesses it, which is what the CameraRig follows).
-        // Movement is driven by contents/game.rhai.
-        //
-        // The sausage FBX is ~5.9 m tall with its origin at the feet, so
-        // the visible mesh lives on a CHILD entity: scaled to ~0.3 (to
-        // match the capsule) and offset down by the capsule half-height
-        // (the mover keeps the pawn origin at the capsule centre, ~0.9 m
-        // up), so the mesh's feet land on the ground.
+        // --- Wall (east segment): x in [2,10] ------------------------
         (
             overrides: (
-                name: "Player",
-                tags: ["Player"],
+                name: "WallEast",
                 scene_entity: Some((
                     transform: (
-                        translation: (0.0, 1.0, 4.0),
+                        translation: (6.0, 1.0, 0.0),
+                        rotation: (0.0, 0.0, 0.0, 1.0),
+                        scale: (8.0, 2.0, 1.0),
+                    ),
+                )),
+                mesh3d: Some((
+                    mesh_path: None,
+                    materials: [Some((base_color: (0.28, 0.26, 0.32, 1.0), metallic: 0.0, roughness: 0.8))],
+                )),
+                nav_obstacle: Some((
+                    shape: Box(half_extents: (4.0, 1.0, 0.5), yaw: 0.0),
+                )),
+            ),
+        ),
+
+        // --- Agent (profile "default", radius 0.5) -------------------
+        // Body = CharacterMover; brain = NavAgent. Starts behind the west
+        // wall at z = +6 and aims for z = -6 at the same x, so it must
+        // route through the gap. The visible body is a child cube.
+        (
+            overrides: (
+                name: "Agent",
+                tags: ["Agent"],
+                scene_entity: Some((
+                    transform: (
+                        translation: (-7.0, 1.0, 6.0),
                         rotation: (0.0, 0.0, 0.0, 1.0),
                         scale: (1.0, 1.0, 1.0),
                     ),
                 )),
                 character_mover: Some(()),
+                nav_agent: Some((
+                    profile: "default",
+                    goal: Position((-7.0, 0.0, -6.0)),
+                )),
                 children: [
                     (
-                        name: "PlayerMesh",
+                        name: "AgentMesh",
                         scene_entity: Some((
                             transform: (
-                                translation: (0.0, -0.9, 0.0),
+                                translation: (0.0, 0.0, 0.0),
                                 rotation: (0.0, 0.0, 0.0, 1.0),
-                                scale: (0.3, 0.3, 0.3),
+                                scale: (0.6, 1.6, 0.6),
                             ),
                         )),
-                        mesh3d: Some((mesh_path: Some("meshes/sausage.fbx"))),
+                        mesh3d: Some((
+                            mesh_path: None,
+                            materials: [Some((base_color: (0.20, 0.45, 0.85, 1.0), metallic: 0.1, roughness: 0.5))],
+                        )),
                     ),
                 ],
             ),
         ),
 
-        // --- Player controller: the brain -----------------------------
-        // Possesses the "Player"-tagged pawn by tag (entity ids aren't
-        // stable on disk; gameplay tags are). The CameraRig follows
-        // whatever this controller possesses.
+        // --- WideAgent (profile "wide", radius 1.0) ------------------
+        // Same trip, larger nav profile -> its per-agent navmesh erodes
+        // further from the walls, so it keeps a wider berth at the gap.
         (
             overrides: (
-                name: "PlayerController",
-                player_controller: Some((
-                    player_index: 0,
-                    auto_possess_tag: "Player",
-                )),
-            ),
-        ),
-
-        // --- Moving platform -----------------------------------------
-        // A Kinematic box off to the right (x = 6), clear of the path
-        // from spawn to the ramp. game.rhai slides it back and forth
-        // along Z each frame via set_translation; physics syncs the
-        // kinematic collider so the character collides with / can hop
-        // onto it where it's drawn. Low (y = 0.6) so it's steppable.
-        (
-            overrides: (
-                name: "Platform",
-                tags: ["Platform"],
+                name: "WideAgent",
+                tags: ["Agent"],
                 scene_entity: Some((
                     transform: (
-                        translation: (6.0, 0.6, 0.0),
-                        rotation: (0.0, 0.0, 0.0, 1.0),
-                        scale: (2.0, 0.4, 2.0),
-                    ),
-                )),
-                mesh3d: Some((
-                    mesh_path: None,
-                    materials: [Some((base_color: (0.25, 0.45, 0.7, 1.0), metallic: 0.1, roughness: 0.6))],
-                )),
-                rigid_body: Some((kind: Kinematic, mass: 0.0)),
-                collider: Some((
-                    shape: Cuboid(half_extents: (0.5, 0.5, 0.5)),
-                    restitution: 0.0,
-                    friction: 0.9,
-                    sensor: false,
-                )),
-            ),
-        ),
-
-        // --- Enemy: a simple AI chaser -------------------------------
-        // Its own CharacterMover (body) + an AiController marker (brain).
-        // game.rhai steers it toward the player each frame with
-        // mover_input(). It is deliberately slow (2.5 m/s vs the player's
-        // 6) and starts far away, so it's an avoidable threat; on a catch
-        // the script resets BOTH the player and the enemy (otherwise the
-        // enemy would sit on the spawn point and re-catch immediately).
-        (
-            overrides: (
-                name: "Enemy",
-                tags: ["Enemy"],
-                scene_entity: Some((
-                    transform: (
-                        translation: (9.0, 1.0, -9.0),
+                        translation: (-4.0, 1.0, 6.0),
                         rotation: (0.0, 0.0, 0.0, 1.0),
                         scale: (1.0, 1.0, 1.0),
                     ),
                 )),
-                mesh3d: Some((
-                    mesh_path: None,
-                    materials: [Some((base_color: (0.8, 0.15, 0.15, 1.0), metallic: 0.0, roughness: 0.5))],
+                character_mover: Some(()),
+                nav_agent: Some((
+                    profile: "wide",
+                    goal: Position((-4.0, 0.0, -6.0)),
                 )),
-                character_mover: Some((settings: (max_speed: 2.5))),
-                ai_controller: Some(()),
+                children: [
+                    (
+                        name: "WideAgentMesh",
+                        scene_entity: Some((
+                            transform: (
+                                translation: (0.0, 0.0, 0.0),
+                                rotation: (0.0, 0.0, 0.0, 1.0),
+                                scale: (1.0, 1.6, 1.0),
+                            ),
+                        )),
+                        mesh3d: Some((
+                            mesh_path: None,
+                            materials: [Some((base_color: (0.90, 0.50, 0.15, 1.0), metallic: 0.1, roughness: 0.5))],
+                        )),
+                    ),
+                ],
             ),
         ),
 
-        // --- Collectible coins ----------------------------------------
-        // Gold cubes tagged "Coin". game.rhai picks them up by proximity
-        // to the player and shows the count on the HUD. No collider:
-        // pickup is distance-based, so the character passes through.
+        // --- Goal markers (no collider; purely visual) ---------------
         (
             overrides: (
-                name: "Coin1",
-                tags: ["Coin"],
+                name: "GoalAgent",
                 scene_entity: Some((
                     transform: (
-                        translation: (3.0, 0.8, 2.0),
+                        translation: (-7.0, 0.2, -6.0),
                         rotation: (0.0, 0.0, 0.0, 1.0),
-                        scale: (0.3, 0.3, 0.3),
+                        scale: (0.5, 0.4, 0.5),
                     ),
                 )),
                 mesh3d: Some((
                     mesh_path: None,
-                    materials: [Some((base_color: (1.0, 0.84, 0.0, 1.0), metallic: 1.0, roughness: 0.3))],
+                    materials: [Some((base_color: (0.20, 0.45, 0.85, 1.0), metallic: 0.0, roughness: 0.4))],
                 )),
             ),
         ),
         (
             overrides: (
-                name: "Coin2",
-                tags: ["Coin"],
+                name: "GoalWideAgent",
                 scene_entity: Some((
                     transform: (
-                        translation: (-3.5, 0.8, 0.0),
+                        translation: (-4.0, 0.2, -6.0),
                         rotation: (0.0, 0.0, 0.0, 1.0),
-                        scale: (0.3, 0.3, 0.3),
+                        scale: (0.5, 0.4, 0.5),
                     ),
                 )),
                 mesh3d: Some((
                     mesh_path: None,
-                    materials: [Some((base_color: (1.0, 0.84, 0.0, 1.0), metallic: 1.0, roughness: 0.3))],
-                )),
-            ),
-        ),
-        (
-            overrides: (
-                name: "Coin3",
-                tags: ["Coin"],
-                scene_entity: Some((
-                    transform: (
-                        translation: (0.0, 2.6, -6.0),
-                        rotation: (0.0, 0.0, 0.0, 1.0),
-                        scale: (0.3, 0.3, 0.3),
-                    ),
-                )),
-                mesh3d: Some((
-                    mesh_path: None,
-                    materials: [Some((base_color: (1.0, 0.84, 0.0, 1.0), metallic: 1.0, roughness: 0.3))],
+                    materials: [Some((base_color: (0.90, 0.50, 0.15, 1.0), metallic: 0.0, roughness: 0.4))],
                 )),
             ),
         ),

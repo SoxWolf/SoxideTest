@@ -1,73 +1,85 @@
-# Sausage Playground
+# Soxide Navmesh Demo
 
-A minimal **third-person** sample for the [Soxide](https://github.com/SoxWolf/Soxide)
-game engine. It is a standalone project that depends on the engine over
-**git** (the engine lives in a separate repository — game and engine
-trees stay physically disjoint, a hard Soxide invariant) and assembles a
-playable character stack entirely from plain-text, diffable assets.
+A minimal **navmesh navigation** sample for the
+[Soxide](https://github.com/SoxWolf/Soxide) game engine. A character walks
+to a destination on the far side of a wall by routing *around* it through
+a gap, driven entirely by the engine's navigation subsystem
+(`soxide_engine::gameplay::nav`). It is a standalone project that depends
+on the engine over **git** (the engine lives in a separate repository —
+game and engine trees stay physically disjoint, a hard Soxide invariant)
+and assembles the whole scene from plain-text, diffable assets.
+
+> **Engine branch.** The navmesh types (`NavAgent`, `NavObstacle`,
+> `NavMeshResource`, `AgentProfile`, …) live on the engine branch
+> `claude/code-review-optimization-3qaemk`. Until it merges to `main`,
+> `Cargo.toml` pins the engine to that branch's HEAD commit (`6891f4d`).
+
+## How the navmesh works here
+
+The engine wires navigation into the `Update` schedule automatically
+(`App::new` pre-inserts `NavMeshResource` and registers
+`nav_maintenance_tick` + `nav_agent_tick`). This project supplies three
+things:
+
+1. **A walkable surface from level geometry.** The floor is a static
+   `Collider` cuboid; `nav_maintenance_tick` triangulates every collider
+   (`collect_nav_triangles`) and bakes a navmesh over it.
+2. **Obstacles to route around.** Each wall segment is a **`NavObstacle`**
+   whose footprint is carved out of every agent's navmesh, leaving the
+   central gap as the only crossing.
+3. **Agents.** Each character has a `CharacterMover` (its body) and a
+   `NavAgent` (the path follower): it resolves its goal, queries the
+   navmesh for its `profile`, and writes `MoveIntent` on the mover, so the
+   existing kinematic mover walks the funnelled corridor.
+
+`src/main.rs` enables the build: it declares the agent **profiles** and
+flips `auto_build` on `NavMeshResource` so the mesh regenerates from world
+geometry whenever it is missing or dirty.
+
+> **Why the walls are obstacles, not colliders.** This navmesh build is
+> single-floor — it keeps the *highest walkable surface per cell*. A solid
+> box collider's flat **top** is itself walkable, so a collider wall would
+> just raise the floor locally and would **not** block horizontal routing.
+> Carving with `NavObstacle` is the engine's blocking primitive (its own
+> navmesh verification scene blocks a wall the same way). The floor stays a
+> real collider, so the *walkable* mesh is still generated from level
+> geometry — obstacles only subtract from it.
 
 ## What's in the scene
 
 `contents/scenes/main.soxscene` (auto-loaded on startup as the project's
 `default_scene`):
 
-| Entity | Components |
+| Entity | Role |
 |---|---|
-| **Ground** | 20 × 1 × 20 static box — unit-cube mesh scaled up, `Fixed` body + `Cuboid` collider |
-| **Ramp** | tilted (~20°) static box, below the mover's 45° slope limit so it's walkable |
-| **Player** | the engine's test **sausage** skinned mesh (`meshes/sausage.fbx`) + a `CharacterMover` (kinematic collide-and-slide), tagged `Player`. Movement is driven by `game.rhai` (see below). |
-| **PlayerController** | possesses the `Player`-tagged pawn by tag (`auto_possess_tag`) |
-| **Camera** | `Camera3d` + a third-person `CameraRig` spring-arm that follows player 0 and orbits on the `Look` action |
+| **Ground** | 20 × 20 static `Collider` box — the walkable surface the navmesh is baked over |
+| **WallWest** / **WallEast** | wall segments (`NavObstacle` + mesh) spanning `x ∈ [-10,-2]` and `[2,10]` at `z = 0`, leaving a 4 m gap at `x ∈ [-2,2]` |
+| **Agent** | `CharacterMover` + `NavAgent` (profile `"default"`, radius 0.5). Starts behind the west wall at `z = +6`, goal at `z = -6` — must detour through the gap. Blue body. |
+| **WideAgent** | same trip with profile `"wide"` (radius 1.0). Its per-agent navmesh erodes further from the walls, so it keeps a **wider berth** at the gap. Orange body. |
+| **GoalAgent** / **GoalWideAgent** | small markers at each agent's goal |
+| **Camera** | a static, elevated `Camera3d` framing the whole arena from above |
 | **Sun** / **Ambient** | a shadow-casting directional light + ambient fill |
-| **Coin1–3** | gold cubes tagged `Coin`, collected by proximity (see `game.rhai`) |
-| **Platform** | a `Kinematic` box off to the right (x=6), slid along Z by `game.rhai`; hoppable, out of the spawn→ramp path |
-| **Enemy** | a slow red chaser (`CharacterMover` + `AiController`) steered by `game.rhai`; non-lethal — on contact *it* is sent home, never the player |
 
-The ground, ramp, coins, platform and enemy use inline PBR materials.
+## Per-agent navmeshes
 
-The Controller → Pawn split is UE-flavoured: the **controller** is the
-brain (possession), the **pawn** is the body (mover + mesh), and the
-**camera rig** follows whatever the matching controller possesses.
+Two `AgentProfile`s are baked (`src/main.rs`): `"default"` (radius 0.5)
+and `"wide"` (radius 1.0). Each agent routes on the navmesh for its own
+profile. The headless check confirms the wide agent's path keeps a
+strictly larger clearance from the walls (~1.1 m vs ~0.55 m).
 
-## Input
+## Runtime re-pathing
 
-Authored as Enhanced-Input assets under `contents/input/`:
+`contents/game.rhai` is the thin game layer. It lives in the contents
+**root** (the script loader is non-recursive) and every few seconds flips
+each agent's goal to the other side of the wall via `nav_goal_pos`, so
+they continuously re-path. Because it writes `NavAgent.goal` (not the
+mover intent), it never fights the path follower. In headless runs
+`time_elapsed()` is frozen at 0, so the agents keep their scene-authored
+goals — deterministic for the test.
 
-- `MoveForward` / `MoveBack` / `MoveLeft` / `MoveRight` (`Bool`), `Jump` (`Bool`, `Pressed`), `Look` (`Axis2D`)
-- `gameplay.soxinputcontext` binds **WASD** → the four directional actions, **Space** → Jump, **mouse X** → Look
-
-Contexts load inactive; `contents/game.rhai` activates `gameplay` at
-startup with one `add_input_context("gameplay", 0)` call, then composes
-the four directional actions into a movement vector and feeds the mover.
-
-| Action | Keys |
-|---|---|
-| Move | `W` `A` `S` `D` (world axis) |
-| Jump | `Space` |
-| Look | Mouse (yaw) |
-
-> **Engine note.** Movement is composed from four single-key `Bool`
-> actions instead of one camera-relative `Axis2D` "Move", and Look is
-> mouse-yaw only, because the engine's on-disk **`Swizzle` modifier**
-> (which folding WASD onto an Axis2D and the mouse-Y onto pitch would
-> require) does not round-trip through the `.soxinputcontext`
-> `ModifierSpec` in this engine revision — its enum field serializes to
-> `()` and decodes back as the identity. Avoiding `Swizzle` keeps the
-> input fully functional from plain text.
-
-## Gameplay script
-
-`contents/game.rhai` is the thin game layer on top of the engine's
-built-in systems (mover step, possession, physics, follow camera). It
-lives in the contents **root** (not a subfolder) because the script
-loader is non-recursive. Each frame it:
-
-- drives the player from the four directional actions (`mover_input`) + jump;
-- collects coins within ~1.2 m of the player (by tag + distance);
-- steers the enemy toward the player; on contact the **enemy** is sent home (non-lethal — it never resets the player);
-- slides the moving platform along Z, off to the side (`set_translation`);
-- respawns the player only if it falls below `y = -8`;
-- draws a HUD (coins collected, speed, movement mode, controls).
+Other nav script bindings available: `nav_goal_tag(e, tag)` (chase the
+nearest tagged entity), `nav_target(e, bits)` (chase a specific entity),
+`nav_stop(e)`, and `nav_rebuild()` (force a regeneration).
 
 ## Build & run
 
@@ -77,17 +89,28 @@ revision is pinned in `Cargo.toml`.
 
 ```sh
 cargo build            # compile
-cargo run              # open the window and play
+cargo run              # open the window and watch the agents navigate
 ```
 
 The platform crate is selected by target: `soxide-platform-linux` on
 Linux, `soxide-platform-windows` on Windows.
 
-Headless smoke test (no window/GPU):
+Headless smoke test (no window/GPU) — builds the navmesh from the real
+world geometry, asserts both agents route around the wall (per-profile
+clearance), and walks an agent to its goal through the gap:
 
 ```sh
 cargo run --example headless_check
 ```
+
+## Known limitations (not bugs)
+
+- The navmesh is generated from `Collider` geometry; mesh colliders
+  contribute only their AABB, so this demo uses cuboids.
+- There is no runtime debug-draw of the path yet — you verify by watching
+  the character move (the headless check verifies the route analytically).
+- Single-floor: one walkable surface per cell, so no bridges / overlapping
+  levels.
 
 ## Continuous integration
 
@@ -102,14 +125,13 @@ build step fails with a clear error.
 
 ```
 sausage_playground.soxproj      project manifest (window, contents root, default scene)
-Cargo.toml                      git deps on soxide-engine + the platform crate
-src/main.rs                     loads the .soxproj, hands the App to the platform runner
-examples/headless_check.rs      no-window verification of the whole asset stack
+Cargo.toml                      git deps on soxide-engine + the platform crate (nav branch)
+src/main.rs                     loads the .soxproj, enables the navmesh build, runs the App
+examples/headless_check.rs      no-window verification of navmesh generation + routing
 .github/workflows/ci.yml        build + headless check on Linux (needs ENGINE_TOKEN secret)
 contents/
-├── game.rhai                   movement + input activation + coins + enemy + platform + HUD + respawn
+├── game.rhai                   runtime goal switching (re-pathing) + HUD
 ├── scenes/main.soxscene        the scene above
-├── input/*.soxaction           MoveForward/Back/Left/Right, Jump, Look
-├── input/gameplay.soxinputcontext   key bindings (no modifiers)
-└── meshes/sausage.fbx          the player mesh (from the engine's test data)
+├── input/*.soxaction           MoveForward/Back/Left/Right, Jump, Look (kept; unused by the demo)
+└── input/gameplay.soxinputcontext   key bindings
 ```

@@ -23,14 +23,19 @@ path = "src/main.rs"
 # stay physically disjoint, which is a hard architectural invariant of
 # Soxide. The crates are workspace members of the engine repo, addressed
 # by package name and pinned to an exact revision for reproducibility.
+#
+# TEMPORARY: pinned to the HEAD of the engine's navmesh branch
+# `claude/code-review-optimization-3qaemk` (commit 6891f4d) so the
+# `soxide_engine::gameplay::Nav*` types the navmesh demo uses exist.
+# Bump back to a `main` revision once that branch lands on main.
 [dependencies]
-soxide-engine = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-engine", rev = "124bd242ec46f9cc88bbc7fdae7487150eac5dde" }
+soxide-engine = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-engine", rev = "6891f4d7388663dd25df5c8fd1252df4a218fe07" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-soxide-platform-linux = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-linux", rev = "124bd242ec46f9cc88bbc7fdae7487150eac5dde" }
+soxide-platform-linux = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-linux", rev = "6891f4d7388663dd25df5c8fd1252df4a218fe07" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-soxide-platform-windows = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-windows", rev = "124bd242ec46f9cc88bbc7fdae7487150eac5dde" }
+soxide-platform-windows = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-windows", rev = "6891f4d7388663dd25df5c8fd1252df4a218fe07" }
 
 [profile.dev]
 opt-level = 1
