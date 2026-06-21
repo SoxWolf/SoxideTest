@@ -29,15 +29,36 @@ fn main() {
         }
     };
 
-    // Hide the OS cursor for mouse-look. The desktop runner reads mouse
-    // motion from the windowed cursor position (it has no pointer-lock /
-    // raw-motion path), so we use HIDDEN (hide only) rather than LOCKED —
-    // locking would pin the cursor and stop delivering motion. The cursor
-    // stays free and invisible; the CameraRig's `look_action` orbits the
-    // camera as you move the mouse over the window. (To quit, close the
-    // window or Ctrl-C the terminal.)
-    app.world
-        .insert_resource(soxide_engine::window::CursorGrab::HIDDEN);
+    // Turn on navmesh generation. `App::new` pre-inserts an (empty,
+    // auto-build off) `NavMeshResource`; here we declare the agent
+    // profiles to bake a navmesh for and flip `auto_build` so
+    // `nav_maintenance_tick` (re)generates the mesh from the level's
+    // collision geometry whenever it is missing or dirty. Two profiles
+    // give two per-agent navmeshes: "default" matches the demo agent's
+    // body, "wide" keeps a larger berth from the walls.
+    if let Some(nav) = app
+        .world
+        .get_resource_mut::<soxide_engine::gameplay::NavMeshResource>()
+    {
+        use soxide_engine::gameplay::AgentProfile;
+        nav.profiles = vec![
+            AgentProfile {
+                name: "default".into(),
+                radius: 0.5,
+                height: 1.8,
+                max_step: 0.4,
+                max_slope_deg: 50.0,
+            },
+            AgentProfile {
+                name: "wide".into(),
+                radius: 1.0,
+                height: 1.8,
+                max_step: 0.4,
+                max_slope_deg: 50.0,
+            },
+        ];
+        nav.auto_build = true;
+    }
 
     #[cfg(target_os = "linux")]
     use soxide_platform_linux as platform;
