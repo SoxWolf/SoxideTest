@@ -44,7 +44,15 @@ the four directional actions into a movement vector and feeds the mover.
 |---|---|
 | Move | `W` `A` `S` `D` (world axis) |
 | Jump | `Space` |
-| Look | Mouse (yaw) |
+| Look | Mouse (yaw) — cursor is hidden at startup |
+
+`main.rs` hides the OS cursor (`CursorGrab::HIDDEN`) for mouse-look. The
+desktop runner reads motion from the **windowed cursor position** (no
+pointer-lock / raw-motion path), so the cursor can't be truly captured —
+turning is bounded by how far the cursor can travel across the window
+before motion stops. Adjust turn speed with the CameraRig's
+`look_sensitivity` in `contents/scenes/main.soxscene`. To quit, close the
+window or `Ctrl-C` the terminal.
 
 > **Engine note.** Movement is composed from four single-key `Bool`
 > actions instead of one camera-relative `Axis2D` "Move", and Look is

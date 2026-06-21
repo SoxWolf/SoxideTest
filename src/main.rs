@@ -21,13 +21,23 @@ use std::path::PathBuf;
 
 fn main() {
     let proj = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sausage_playground.soxproj");
-    let app = match App::from_project_file(&proj) {
+    let mut app = match App::from_project_file(&proj) {
         Ok(a) => a,
         Err(e) => {
             eprintln!("failed to load project {}: {e}", proj.display());
             std::process::exit(1);
         }
     };
+
+    // Hide the OS cursor for mouse-look. The desktop runner reads mouse
+    // motion from the windowed cursor position (it has no pointer-lock /
+    // raw-motion path), so we use HIDDEN (hide only) rather than LOCKED —
+    // locking would pin the cursor and stop delivering motion. The cursor
+    // stays free and invisible; the CameraRig's `look_action` orbits the
+    // camera as you move the mouse over the window. (To quit, close the
+    // window or Ctrl-C the terminal.)
+    app.world
+        .insert_resource(soxide_engine::window::CursorGrab::HIDDEN);
 
     #[cfg(target_os = "linux")]
     use soxide_platform_linux as platform;
