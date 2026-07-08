@@ -29,13 +29,13 @@ path = "src/main.rs"
 # `soxide_engine::gameplay::Nav*` types the navmesh demo uses exist.
 # Bump back to a `main` revision once that branch lands on main.
 [dependencies]
-soxide-engine = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-engine", rev = "6891f4d7388663dd25df5c8fd1252df4a218fe07" }
+soxide-engine = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-engine", rev = "3efb15f74eb4e6b8b6c7a2d9365ccab9126ed36d" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-soxide-platform-linux = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-linux", rev = "6891f4d7388663dd25df5c8fd1252df4a218fe07" }
+soxide-platform-linux = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-linux", rev = "3efb15f74eb4e6b8b6c7a2d9365ccab9126ed36d" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-soxide-platform-windows = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-windows", rev = "6891f4d7388663dd25df5c8fd1252df4a218fe07" }
+soxide-platform-windows = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-windows", rev = "3efb15f74eb4e6b8b6c7a2d9365ccab9126ed36d" }
 
 [profile.dev]
 opt-level = 1
