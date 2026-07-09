@@ -1548,9 +1548,12 @@ pub fn install_voxel_game(app: &mut App) {
         radius: 5,
     });
 
-    // Player pawn: a gravity-driven CharacterMover that walks/collides on
-    // the terrain trimesh. Spawns high and falls onto the streamed ground.
-    let spawn = DVec3::new(0.0, 60.0, 0.0);
+    // Player pawn: a gravity-driven CharacterMover. Spawn it just above the
+    // surface at the origin so the world is in view immediately — spawning
+    // high up left the camera staring at the (near-black) empty sky until the
+    // pawn finished falling, which reads as a black screen in the editor.
+    let surf = height_at(0, 0, cfg.seed, cfg.max_height);
+    let spawn = DVec3::new(0.0, surf as f64 + 2.0, 0.0);
     let pawn = app.world.spawn(SceneEntity::from_translation(spawn));
     app.world.insert(
         pawn,
@@ -1567,6 +1570,7 @@ pub fn install_voxel_game(app: &mut App) {
     let mut player = Player::default();
     player.pawn = Some(pawn);
     player.pos = spawn;
+    player.pitch = -0.35; // tilt down so the terrain is in frame on spawn
     app.insert_resource(player);
 
     app.insert_resource(SpawnAssets::default());
