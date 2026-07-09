@@ -21,6 +21,12 @@ use soxide_engine::asset::{
     AssetServer, BlendMode, ColorSpace, Material, MaterialHandle, MeshAsset, MeshVertex, Submesh,
     Texture,
 };
+
+// Export the full-`App` plugin entry points (`sox_plugin_build` +
+// `sox_plugin_abi_version`) so the editor / runner can dlopen this cdylib and
+// run the exact same game inside the editor (Unreal PIE / Godot style). Only
+// meaningful when built as a `cdylib`; harmless in the rlib/bin builds.
+soxide_engine::sox_plugin!(install_voxel_game);
 use soxide_engine::core::Handle;
 use soxide_engine::core::Time;
 use soxide_engine::core::glam::{DQuat, DVec3};
@@ -1521,6 +1527,15 @@ pub fn world_load_tick(world: &mut World) {
 /// is what the game binary runs.
 pub fn build_streaming_app() -> App {
     let mut app = App::new();
+    install_voxel_game(&mut app);
+    app
+}
+
+/// Install the whole voxel game onto an existing `App` — systems, resources,
+/// the player pawn, camera and lights. Used both by [`build_streaming_app`]
+/// (the standalone binary) and by the `sox_plugin_build` entry point, so the
+/// exact same game runs inside the editor as a full-`App` plugin.
+pub fn install_voxel_game(app: &mut App) {
     let mut cfg = VoxelConfig::default();
     cfg.terrain = Terrain::Chunked;
     app.insert_resource(cfg);
@@ -1579,7 +1594,6 @@ pub fn build_streaming_app() -> App {
         color: [0.55, 0.65, 0.85],
         intensity: 0.30,
     });
-    app
 }
 
 // ---------------------------------------------------------------------------

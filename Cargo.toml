@@ -14,6 +14,13 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
+# Built as both an rlib (for the bin + tests) and a cdylib (the full-`App`
+# plugin the editor/runner dlopen — see `sox_plugin!(install_voxel_game)` in
+# src/lib.rs and plugins/voxel/voxel.soxplugin).
+[lib]
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
 [[bin]]
 name = "sausage_playground"
 path = "src/main.rs"
@@ -21,21 +28,22 @@ path = "src/main.rs"
 # The engine lives in a SEPARATE repository and is pulled in as a git
 # dependency (NOT a path dependency): the game tree and the engine tree
 # stay physically disjoint, which is a hard architectural invariant of
-# Soxide. The crates are workspace members of the engine repo, addressed
-# by package name and pinned to an exact revision for reproducibility.
-#
-# TEMPORARY: pinned to the HEAD of the engine's navmesh branch
-# `claude/code-review-optimization-3qaemk` (commit 6891f4d) so the
-# `soxide_engine::gameplay::Nav*` types the navmesh demo uses exist.
-# Bump back to a `main` revision once that branch lands on main.
+# Soxide. Pinned to an exact `main` revision for reproducibility — the same
+# revision the editor is built from, which the plugin ABI-version probe
+# requires (a full-`App` plugin shares real Rust types with the host).
 [dependencies]
-soxide-engine = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-engine", rev = "3efb15f74eb4e6b8b6c7a2d9365ccab9126ed36d" }
+soxide-engine = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-engine", rev = "fa6e0c517163576cb72e1e79b4321752d66ea37f" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-soxide-platform-linux = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-linux", rev = "3efb15f74eb4e6b8b6c7a2d9365ccab9126ed36d" }
+soxide-platform-linux = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-linux", rev = "fa6e0c517163576cb72e1e79b4321752d66ea37f" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-soxide-platform-windows = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-windows", rev = "3efb15f74eb4e6b8b6c7a2d9365ccab9126ed36d" }
+soxide-platform-windows = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-windows", rev = "fa6e0c517163576cb72e1e79b4321752d66ea37f" }
+
+[dev-dependencies]
+# For the headless test that dlopens the compiled plugin and runs it exactly
+# as the editor/runner would.
+libloading = "0.8"
 
 [profile.dev]
 opt-level = 1

@@ -50,5 +50,5 @@ jobs:
       - name: Headless check (navmesh demo assets)
         run: cargo run --example headless_check
 
-      - name: Voxel world tests
-        run: cargo test --test voxel
+      - name: Voxel world tests (+ the full-App plugin dlopen test)
+        run: cargo test

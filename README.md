@@ -19,6 +19,26 @@ cargo run --release
 save. Chunks stream in/out around you as you explore; edits re-mesh the
 affected chunk live and persist to `voxel_world.save`.
 
+## Run it in the editor (code + data, like Unreal PIE / Godot)
+
+The game is also a **full-`App` plugin**: the crate builds a `cdylib`
+(`sox_plugin!(install_voxel_game)` in `src/lib.rs`) that the editor/runner
+`dlopen` and call with the live `&mut App` — the exact same game, inside the
+editor.
+
+```sh
+# 1) build the plugin cdylib (debug — matches plugins/voxel/voxel.soxplugin)
+cargo build
+# 2) open the project in the engine editor and press Play
+cargo run -p soxide-editor -- /path/to/SoxideTest/voxel_world.soxproj
+```
+
+`voxel_world.soxproj` lists `plugins: ["plugins/voxel"]`; that dir's
+`voxel.soxplugin` points at `target/debug/libsausage_playground.so`. The
+plugin must be built against the **same engine rev + toolchain** as the
+editor — the `sox_plugin_abi_version` probe enforces this at load (it's the
+`rev` pinned in `Cargo.toml`).
+
 ## What's in it
 
 | System | How |
