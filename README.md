@@ -15,8 +15,8 @@ cargo run --release
 ```
 
 **Controls:** `W/A/S/D` walk (gravity + terrain collision), mouse look,
-`Space` jump, **left-click** carve a block, **right-click** place one, `F5`
-save. Chunks stream in/out around you as you explore; edits re-mesh the
+`Space` jump, `Esc` release/re-grab the mouse, **left-click** carve a block,
+**right-click** place one, `F5` save. Chunks stream in/out around you as you explore; edits re-mesh the
 affected chunk live and persist to `voxel_world.save`.
 
 ## Run it in the editor (code + data, like Unreal PIE / Godot)

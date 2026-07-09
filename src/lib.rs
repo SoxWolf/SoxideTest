@@ -31,7 +31,7 @@ use soxide_engine::core::Handle;
 use soxide_engine::core::Time;
 use soxide_engine::core::glam::{DQuat, DVec3};
 use soxide_engine::ecs::{Entity, Stage, World};
-use soxide_engine::window::{Input, KeyCode, MouseButton};
+use soxide_engine::window::{CursorGrab, Input, KeyCode, MouseButton};
 use soxide_engine::gameplay::{SteerAgent, SteerMode};
 use soxide_engine::physics::{CharacterMover, Collider, MoverSettings, RigidBody};
 use soxide_engine::render::{
@@ -999,6 +999,8 @@ pub struct Player {
     pub sensitivity: f64,
     /// Camera height above the pawn origin.
     pub eye: f64,
+    /// Cursor grabbed (hidden + locked) for FPS mouse-look. Toggle with Esc.
+    pub grabbed: bool,
 }
 
 impl Default for Player {
@@ -1010,6 +1012,7 @@ impl Default for Player {
             pitch: -0.15,
             sensitivity: 0.0025,
             eye: 1.5,
+            grabbed: true,
         }
     }
 }
@@ -1057,12 +1060,19 @@ pub fn player_control_tick(world: &mut World) {
     let carve = input.mouse_just_pressed(MouseButton::Left);
     let place = input.mouse_just_pressed(MouseButton::Right);
     let save_key = input.just_pressed(KeyCode::F5);
+    let toggle_grab = input.just_pressed(KeyCode::Escape);
 
     let mut p = *world
         .get_resource::<Player>()
         .expect("Player resource present");
-    p.yaw -= mdx * p.sensitivity;
-    p.pitch = (p.pitch - mdy * p.sensitivity).clamp(-1.54, 1.54);
+    if toggle_grab {
+        p.grabbed = !p.grabbed;
+    }
+    // Only steer the look while the cursor is grabbed (Esc to free it).
+    if p.grabbed {
+        p.yaw -= mdx * p.sensitivity;
+        p.pitch = (p.pitch - mdy * p.sensitivity).clamp(-1.54, 1.54);
+    }
 
     // Horizontal move intent in the yaw frame.
     let (fwd, right) = p.walk_axes();
@@ -1088,7 +1098,15 @@ pub fn player_control_tick(world: &mut World) {
     let cam_pos = p.pos + DVec3::new(0.0, p.eye, 0.0);
     let look_rot = p.look_rot();
     let look_dir = p.look_dir();
+    let grabbed = p.grabbed;
     *world.get_resource_mut::<Player>().unwrap() = p;
+
+    // Lock + hide the cursor for FPS mouse-look (the runner re-centres it
+    // every grabbed frame via CursorWarp). Esc releases it.
+    if let Some(cg) = world.get_resource_mut::<CursorGrab>() {
+        cg.grabbed = grabbed;
+        cg.hidden = grabbed;
+    }
 
     // Camera follows the pawn (extract id first so the query borrow ends).
     let cam = world.query::<Camera3d>().next().map(|(e, _)| e);
