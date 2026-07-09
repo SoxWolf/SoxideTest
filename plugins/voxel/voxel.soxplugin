@@ -5,6 +5,6 @@
 (
     name: "voxel-world",
     kind: Game,
-    library: "sausage_playground",
-    library_dir: "../../target/debug",
+    library: Some("sausage_playground"),
+    library_dir: Some("../../target/debug"),
 )

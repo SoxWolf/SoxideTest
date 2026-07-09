@@ -623,3 +623,28 @@ fn voxel_project_and_scene_parse() {
     let scene = Scene::load(&root.join(&proj.contents_path).join(scene_rel)).expect("scene loads");
     assert!(scene.instances.is_empty(), "scene is empty — the plugin fills it in code");
 }
+
+/// Parse the real `plugins/voxel/voxel.soxplugin` through the engine's
+/// `PluginManifest::discover` — the exact path the editor/runner takes when
+/// it loads the plugin. The other tests build the manifest in Rust, so they
+/// never exercised the RON file itself; a malformed manifest (e.g. an
+/// `Option` field written without `Some(...)`) shows up here as a parse
+/// error instead of a silent "loaded: 0" in the editor.
+#[test]
+fn voxel_plugin_manifest_parses_and_resolves_dylib() {
+    use soxide_engine::PluginManifest;
+    use std::path::Path;
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let manifest = PluginManifest::discover(&root.join("plugins/voxel"))
+        .expect("voxel.soxplugin parses via the engine loader");
+    assert_eq!(manifest.name, "voxel-world");
+    assert_eq!(manifest.library_stem(), "sausage_playground");
+    // dylib_path() joins library_dir + the OS-specific filename; assert the
+    // stem so the test holds on every platform CI runs on.
+    let dylib = manifest.dylib_path();
+    let file = dylib.file_name().unwrap().to_string_lossy();
+    assert!(
+        file.contains("sausage_playground"),
+        "resolved dylib {file:?} should name the crate",
+    );
+}
