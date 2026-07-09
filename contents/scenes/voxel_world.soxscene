@@ -1,0 +1,7 @@
+// Empty scene for the Voxel World project. All content (terrain, player,
+// camera, lights, creatures) is added in code by the `voxel-world` plugin
+// (plugins/voxel) when the project loads — this scene just gives the editor
+// something to open.
+(
+    instances: [],
+)

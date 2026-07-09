@@ -610,3 +610,16 @@ fn greedy_meshing_cuts_triangles() {
         assert!(t[0] != t[1] && t[1] != t[2] && t[0] != t[2]);
     }
 }
+
+#[test]
+fn voxel_project_and_scene_parse() {
+    use soxide_engine::{Project, Scene};
+    use std::path::{Path, PathBuf};
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let proj = Project::load(&root.join("voxel_world.soxproj")).expect("voxel_world.soxproj loads");
+    assert_eq!(proj.name, "Voxel World");
+    assert_eq!(proj.plugins, vec![PathBuf::from("plugins/voxel")], "lists the voxel plugin");
+    let scene_rel = proj.default_scene.clone().expect("default_scene is set");
+    let scene = Scene::load(&root.join(&proj.contents_path).join(scene_rel)).expect("scene loads");
+    assert!(scene.instances.is_empty(), "scene is empty — the plugin fills it in code");
+}

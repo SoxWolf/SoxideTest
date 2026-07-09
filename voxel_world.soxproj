@@ -4,6 +4,7 @@
 // everything in code on load.
 (
     name: "Voxel World",
+    default_scene: Some("scenes/voxel_world.soxscene"),
     plugins: ["plugins/voxel"],
     window: (
         title: "Voxel World",
