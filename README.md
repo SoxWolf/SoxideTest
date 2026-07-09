@@ -39,6 +39,30 @@ plugin must be built against the **same engine rev + toolchain** as the
 editor — the `sox_plugin_abi_version` probe enforces this at load (it's the
 `rev` pinned in `Cargo.toml`).
 
+### Plugin won't load ("loaded: 0" in the Plugins tab)
+
+The plugin is loaded by the runner's `load_plugins`; on any failure it logs a
+single `WARN` line to the **Console** tab: `plugin in <dir> skipped: <reason>`.
+Read that reason — it names the exact cause:
+
+| Console `WARN … skipped:` reason | What it means | Fix |
+|---|---|---|
+| *(no WARN at all, list empty)* | The project's `plugins: [...]` wasn't read — wrong project opened, or `plugins` is empty. | Open **`voxel_world.soxproj`** (not `sausage_playground.soxproj`); confirm it lists `plugins: ["plugins/voxel"]`. |
+| `no .soxplugin manifest in <dir>` | The plugin dir has no manifest. | Confirm `plugins/voxel/voxel.soxplugin` exists. |
+| `plugin parse …` | The `.soxplugin` RON is malformed. | Fix the RON syntax. |
+| *cannot load / file not found* (dlopen error) | **The cdylib isn't built.** | Run **`build.bat`** — it must print `Plugin dylib PRESENT`. The editor loads `target\debug\sausage_playground.dll`. |
+| `ABI mismatch: built against <X>, host is <Y>` | The plugin and the editor were built from **different engine revs or different rustc**. | Rebuild the stale side so both strings match. Build the editor and the plugin on the **same machine + toolchain**, from the engine `rev` pinned in `Cargo.toml`. |
+| `exports sox_plugin_build without a version probe` | Corrupt / partial build. | Clean rebuild: `cargo clean` then `build.bat`. |
+
+After fixing, use **Plugins ▸ Reload all** in the editor (no restart needed).
+
+> The full-`App` plugin shares real Rust types across the `dlopen` boundary,
+> so it is **only** sound when the editor and the plugin are the same engine
+> rev *and* the same `rustc`. If your editor is a prebuilt binary whose
+> toolchain you can't match locally, the ABI probe will keep rejecting the
+> plugin — in that case run the game standalone with `cargo run --release`
+> instead, which has no such constraint.
+
 ## What's in it
 
 | System | How |
