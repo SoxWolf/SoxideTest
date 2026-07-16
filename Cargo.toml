@@ -32,13 +32,13 @@ path = "src/main.rs"
 # revision the editor is built from, which the plugin ABI-version probe
 # requires (a full-`App` plugin shares real Rust types with the host).
 [dependencies]
-soxide-engine = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-engine", rev = "fa6e0c517163576cb72e1e79b4321752d66ea37f" }
+soxide-engine = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-engine", rev = "fbcbb1d53b3c473969c4ae7b057ff9f55e317a8a" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-soxide-platform-linux = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-linux", rev = "fa6e0c517163576cb72e1e79b4321752d66ea37f" }
+soxide-platform-linux = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-linux", rev = "fbcbb1d53b3c473969c4ae7b057ff9f55e317a8a" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-soxide-platform-windows = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-windows", rev = "fa6e0c517163576cb72e1e79b4321752d66ea37f" }
+soxide-platform-windows = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-windows", rev = "fbcbb1d53b3c473969c4ae7b057ff9f55e317a8a" }
 
 [dev-dependencies]
 # For the headless test that dlopens the compiled plugin and runs it exactly
