@@ -4,6 +4,11 @@
 // everything in code on load.
 (
     name: "Voxel World",
+    // Own contents dir (NOT the shared `contents/`) so the editor doesn't
+    // auto-load the navmesh demo's `contents/game.rhai` — that script drew the
+    // "Navmesh demo" HUD over this project. Everything here is code-driven by
+    // the plugin, so this dir only needs the empty scene.
+    contents_path: "voxel_contents",
     default_scene: Some("scenes/voxel_world.soxscene"),
     plugins: ["plugins/voxel"],
     window: (
