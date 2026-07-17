@@ -864,6 +864,9 @@ pub fn build_chunk_mesh_with(
         submeshes,
         materials,
         skin: None,
+        // Engine added LOD meshes to MeshAsset; we generate a single
+        // full-detail mesh per chunk, so no extra LOD levels.
+        lods: Default::default(),
     })
 }
 
