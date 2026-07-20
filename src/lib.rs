@@ -1058,7 +1058,9 @@ pub fn player_control_tick(world: &mut World) {
     let Some(input) = world.get_resource::<Input>() else {
         return;
     };
-    let (mdx, mdy) = input.mouse_delta();
+    // Raw device motion (always active, grab or not) — robust to any
+    // grab-state detection edge in the position-based `mouse_delta` path.
+    let (mdx, mdy) = input.mouse_motion();
     let (w, s) = (input.pressed(KeyCode::W), input.pressed(KeyCode::S));
     let (a, d) = (input.pressed(KeyCode::A), input.pressed(KeyCode::D));
     let jump = input.just_pressed(KeyCode::Space);
