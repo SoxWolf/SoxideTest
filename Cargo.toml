@@ -13,22 +13,23 @@ name = "sausage_playground"
 version.workspace = true
 edition.workspace = true
 publish = false
-# This crate is a binary ONLY. Disable library auto-discovery so a stray
-# `src/lib.rs` never creates a `lib` target named `sausage_playground`
-# that collides with the bin's output filename (e.g. `sausage_playground.pdb`
-# on Windows) — see rust-lang/cargo#6313. (`autolib` needs Rust >= 1.83;
-# our MSRV is 1.88.)
-autolib = false
 
 # Built as both an rlib (for the bin + tests) and a cdylib (the full-`App`
 # plugin the editor/runner dlopen — see `sox_plugin!(install_voxel_game)` in
-# src/lib.rs and plugins/voxel/voxel.soxplugin).
+# src/lib.rs and plugins/voxel/voxel.soxplugin). The lib target keeps the
+# package name `sausage_playground` so the plugin dll name, the
+# `voxel.soxplugin` reference, and `use sausage_playground::…` all stay
+# stable.
 [lib]
 path = "src/lib.rs"
 crate-type = ["rlib", "cdylib"]
 
+# The bin target MUST use a name distinct from the lib, otherwise both emit
+# `sausage_playground.pdb` and cargo reports an output-filename collision on
+# Windows (rust-lang/cargo#6313). Renaming the binary (not the lib) keeps the
+# plugin contract untouched; `cargo run` still auto-selects this single bin.
 [[bin]]
-name = "sausage_playground"
+name = "sausage_playground_run"
 path = "src/main.rs"
 
 # The engine lives in a SEPARATE repository and is pulled in as a git
