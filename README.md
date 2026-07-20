@@ -14,10 +14,15 @@ un-paused.
 cargo run --release
 ```
 
-**Controls:** `W/A/S/D` walk (gravity + terrain collision), mouse look,
-`Space` jump, `Esc` release/re-grab the mouse, **left-click** carve a block,
-**right-click** place one, `F5` save. Chunks stream in/out around you as you explore; edits re-mesh the
-affected chunk live and persist to `voxel_world.save`.
+**Controls:** `W/A/S/D` walk (gravity + terrain collision), **mouse** look
+(`Esc` releases / re-grabs the cursor), **`Q`/`E`** turn and **`R`/`F`** tilt as
+a keyboard alternative, `Space` jump, **left-click** carve a block,
+**right-click** place one, `F5` save. Chunks stream in/out around you as you
+explore; edits re-mesh the affected chunk live and persist to `voxel_world.save`.
+
+Mouse-look uses `CursorGrab::LOCKED_WARP` (per-frame cursor re-centering), which
+works even on desktop setups that drop raw mouse-motion events under a cursor
+grab.
 
 ## Run it in the editor (code + data, like Unreal PIE / Godot)
 
