@@ -1611,10 +1611,11 @@ pub fn install_voxel_game(app: &mut App) {
     player.pitch = -0.35; // tilt down so the terrain is in frame on spawn
     app.insert_resource(player);
 
-    // Lock + hide the cursor so mouse-look works from frame one. Without this
-    // resource present, `player_control_tick` has nothing to drive and the
-    // cursor stays free — the camera never turns with the mouse. Esc toggles it.
-    app.insert_resource(CursorGrab { grabbed: true, hidden: true });
+    // Lock + hide the cursor so mouse-look works from frame one. LOCKED_WARP
+    // (== grabbed + hidden + warp_relative) drives the cursor via per-frame
+    // re-centering, which is robust on Windows configs that drop raw device
+    // motion under grab — where plain LOCKED left mouse-look dead. Esc toggles.
+    app.insert_resource(CursorGrab::LOCKED_WARP);
 
     app.insert_resource(SpawnAssets::default());
     app.insert_resource(AtlasTex::default());
