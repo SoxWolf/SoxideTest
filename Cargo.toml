@@ -13,6 +13,12 @@ name = "sausage_playground"
 version.workspace = true
 edition.workspace = true
 publish = false
+# This crate is a binary ONLY. Disable library auto-discovery so a stray
+# `src/lib.rs` never creates a `lib` target named `sausage_playground`
+# that collides with the bin's output filename (e.g. `sausage_playground.pdb`
+# on Windows) — see rust-lang/cargo#6313. (`autolib` needs Rust >= 1.83;
+# our MSRV is 1.88.)
+autolib = false
 
 # Built as both an rlib (for the bin + tests) and a cdylib (the full-`App`
 # plugin the editor/runner dlopen — see `sox_plugin!(install_voxel_game)` in
