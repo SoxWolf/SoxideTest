@@ -1066,6 +1066,14 @@ pub fn player_control_tick(world: &mut World) {
     let place = input.mouse_just_pressed(MouseButton::Right);
     let save_key = input.just_pressed(KeyCode::F5);
     let toggle_grab = input.just_pressed(KeyCode::Escape);
+    // Keyboard look — reliable alternative to the mouse: Q/E turn, R/F tilt.
+    let (yaw_l, yaw_r) = (input.pressed(KeyCode::Q), input.pressed(KeyCode::E));
+    let (pit_u, pit_d) = (input.pressed(KeyCode::R), input.pressed(KeyCode::F));
+
+    let dt = world
+        .get_resource::<Time>()
+        .map(|t| t.delta_secs() as f64)
+        .unwrap_or(1.0 / 60.0);
 
     let mut p = *world
         .get_resource::<Player>()
@@ -1078,6 +1086,11 @@ pub fn player_control_tick(world: &mut World) {
         p.yaw -= mdx * p.sensitivity;
         p.pitch = (p.pitch - mdy * p.sensitivity).clamp(-1.54, 1.54);
     }
+    // Keyboard look is always active (independent of cursor grab / the mouse),
+    // so the camera can be aimed even if mouse-look isn't wired up yet.
+    let kl = 1.8 * dt;
+    p.yaw -= ((yaw_r as i32 - yaw_l as i32) as f64) * kl;
+    p.pitch = (p.pitch - ((pit_d as i32 - pit_u as i32) as f64) * kl).clamp(-1.54, 1.54);
 
     // Horizontal move intent in the yaw frame.
     let (fwd, right) = p.walk_axes();
