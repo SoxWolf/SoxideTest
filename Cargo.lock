@@ -2953,7 +2953,7 @@ dependencies = [
 [[package]]
 name = "soxide-ai"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "crossbeam-channel",
  "glam 0.27.0",
@@ -2968,7 +2968,7 @@ dependencies = [
 [[package]]
 name = "soxide-asset"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ahash",
  "crossbeam-channel",
@@ -2984,7 +2984,7 @@ dependencies = [
 [[package]]
 name = "soxide-audio"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ahash",
  "serde",
@@ -2998,7 +2998,7 @@ dependencies = [
 [[package]]
 name = "soxide-audio-cpal"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ahash",
  "cpal",
@@ -3013,7 +3013,7 @@ dependencies = [
 [[package]]
 name = "soxide-core"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -3034,7 +3034,7 @@ dependencies = [
 [[package]]
 name = "soxide-ecs"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ahash",
  "parking_lot",
@@ -3047,7 +3047,7 @@ dependencies = [
 [[package]]
 name = "soxide-engine"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ahash",
  "glam 0.27.0",
@@ -3070,7 +3070,7 @@ dependencies = [
 [[package]]
 name = "soxide-gameplay"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ron",
  "serde",
@@ -3086,7 +3086,7 @@ dependencies = [
 [[package]]
 name = "soxide-input"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ahash",
  "parking_lot",
@@ -3101,7 +3101,7 @@ dependencies = [
 [[package]]
 name = "soxide-native-io"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
@@ -3126,7 +3126,7 @@ dependencies = [
 [[package]]
 name = "soxide-physics"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ahash",
  "parking_lot",
@@ -3143,7 +3143,7 @@ dependencies = [
 [[package]]
 name = "soxide-platform-desktop"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ahash",
  "crossbeam-channel",
@@ -3172,7 +3172,7 @@ dependencies = [
 [[package]]
 name = "soxide-platform-linux"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "soxide-platform-desktop",
 ]
@@ -3180,7 +3180,7 @@ dependencies = [
 [[package]]
 name = "soxide-platform-windows"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "soxide-platform-desktop",
 ]
@@ -3188,7 +3188,7 @@ dependencies = [
 [[package]]
 name = "soxide-render"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -3205,7 +3205,7 @@ dependencies = [
 [[package]]
 name = "soxide-render-wgpu"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ab_glyph",
  "ahash",
@@ -3226,7 +3226,7 @@ dependencies = [
 [[package]]
 name = "soxide-script"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "crossbeam-channel",
  "parking_lot",
@@ -3248,7 +3248,7 @@ dependencies = [
 [[package]]
 name = "soxide-window"
 version = "0.1.0"
-source = "git+https://github.com/SoxWolf/Soxide?rev=9a504156fe96818981fc73cd1eb96ab14965da13#9a504156fe96818981fc73cd1eb96ab14965da13"
+source = "git+https://github.com/SoxWolf/Soxide?rev=14a9c5bf64b7155ed266db03d20fe90c90bd52d4#14a9c5bf64b7155ed266db03d20fe90c90bd52d4"
 dependencies = [
  "ahash",
  "crossbeam-channel",
