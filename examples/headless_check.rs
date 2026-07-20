@@ -1,27 +1,30 @@
-//! Headless smoke test for the sample (no window / GPU required).
+//! Headless smoke test for the navmesh demo (no window / GPU required).
 //!
-//! Validates the whole authored asset stack against the real engine
-//! types and exercises the gameplay schedule end to end:
+//! Validates the whole authored asset stack against the real engine types
+//! and exercises the navigation schedule end to end:
 //!
 //! 1. the `.soxproj` manifest loads and points at the scene;
 //! 2. every `.soxaction` / `.soxinputcontext` parses;
-//! 3. the `.soxscene` parses into the expected instances;
+//! 3. the `.soxscene` parses into the expected instances, and the agents
+//!    carry the right `NavAgent` profiles;
 //! 4. applying it to a world produces the expected components and the
-//!    gameplay script actually loads;
-//! 5. running the schedule auto-possesses the pawn, settles it on the
-//!    floor, drives the follow camera, and — when input is fed — the
-//!    script moves the character. All without a panic.
+//!    gameplay script loads;
+//! 5. the engine builds a navmesh from the level's collider geometry, and
+//!    pathfinding routes AROUND the wall (never through it), with the
+//!    larger profile keeping a wider berth;
+//! 6. running the schedule actually walks the agent from one side of the
+//!    wall to its goal on the other side — crossing the wall band only
+//!    through the gap. All without a panic.
 //!
 //! Run with: `cargo run --example headless_check`
 
+use soxide_engine::core::glam::DVec3;
 use soxide_engine::ecs::Entity;
-use soxide_engine::gameplay::{AiController, CameraRig, PlayerController};
+use soxide_engine::gameplay::{AgentProfile, NavAgent, NavMeshResource, NavObstacle, QueryFilter};
 use soxide_engine::input::{InputActionFile, InputContextFile};
 use soxide_engine::physics::{BodyKind, CharacterMover, Collider, RigidBody};
 use soxide_engine::render::{AmbientLight, Camera3d, DirectionalLight, SceneEntity};
 use soxide_engine::script::Scripts;
-use soxide_engine::window::input::ButtonState;
-use soxide_engine::window::{Input, KeyCode};
 use soxide_engine::{App, EntityName, Project, Scene};
 use std::path::{Path, PathBuf};
 
@@ -32,8 +35,33 @@ fn find(app: &App, name: &str) -> Entity {
         .unwrap_or_else(|| panic!("entity {name:?} not found in world"))
 }
 
-fn player_pos(app: &App, e: Entity) -> soxide_engine::core::glam::DVec3 {
+fn pos(app: &App, e: Entity) -> DVec3 {
     app.world.get::<SceneEntity>(e).unwrap().transform.translation
+}
+
+/// Horizontal distance from a point to the wall footprint (the two static
+/// boxes that span x in [-10,-2] and [2,10] at z in [-0.5,0.5]). Zero
+/// means the point is inside a wall.
+fn wall_dist(x: f64, z: f64) -> f64 {
+    let to_box = |x0: f64, x1: f64| {
+        let dx = (x0 - x).max(0.0).max(x - x1);
+        let dz = (-0.5 - z).max(0.0).max(z - 0.5);
+        (dx * dx + dz * dz).sqrt()
+    };
+    to_box(-10.0, -2.0).min(to_box(2.0, 10.0))
+}
+
+/// Closest approach of a path to the walls (densely sampled along each
+/// segment so a corner-grazing string-pulled route is caught).
+fn path_clearance(path: &[DVec3]) -> f64 {
+    let mut m = f64::INFINITY;
+    for w in path.windows(2) {
+        for i in 0..=20 {
+            let p = w[0].lerp(w[1], i as f64 / 20.0);
+            m = m.min(wall_dist(p.x, p.z));
+        }
+    }
+    m
 }
 
 fn main() {
@@ -50,182 +78,122 @@ fn main() {
     let contents = project.contents_root();
     println!("[ok] project '{}' -> {}", project.name, project.default_scene.unwrap().display());
 
-    // 2. Input assets.
+    // 2. Input assets still parse (kept for completeness; the demo itself
+    //    is mouse/keyboard-free — the agents are driven by the navmesh).
     let actions = ["MoveForward", "MoveBack", "MoveLeft", "MoveRight", "Jump", "Look"];
     for action in actions {
         let p = contents.join(format!("input/{action}.soxaction"));
         let a = InputActionFile::load(&p).unwrap_or_else(|e| panic!("{action}.soxaction: {e}"));
         assert_eq!(a.name, action);
     }
-    let ctx = InputContextFile::load(contents.join("input/gameplay.soxinputcontext"))
+    InputContextFile::load(contents.join("input/gameplay.soxinputcontext"))
         .expect("gameplay.soxinputcontext parses");
-    assert_eq!(ctx.mappings.len(), 6, "WASD + Jump + Look(yaw)");
-    println!("[ok] input: {} actions + gameplay context ({} mappings)", actions.len(), ctx.mappings.len());
+    println!("[ok] input: {} actions + gameplay context", actions.len());
 
-    // 3. Scene parse.
+    // 3. Scene parse: the demo instances + nav profiles on the agents.
     let scene = Scene::load(&contents.join("scenes/main.soxscene")).expect("scene parses");
-    assert_eq!(scene.instances.len(), 12, "expected 12 entity instances");
-    let coins = scene.instances.iter().filter(|i| i.overrides.tags.iter().any(|t| t == "Coin")).count();
-    assert_eq!(coins, 3, "three collectible coins");
-    // The sausage mesh lives on the Player's child entity (scaled down +
-    // offset so its feet sit on the ground; see the scene comment).
-    let player_inst = scene.instances.iter().find(|i| i.overrides.name == "Player").expect("Player");
-    let mesh_child = player_inst
-        .overrides
-        .children
-        .iter()
-        .find(|c| c.mesh3d.as_ref().and_then(|m| m.mesh_path.as_deref()) == Some("meshes/sausage.fbx"))
-        .expect("Player has a child carrying the sausage FBX");
-    let mesh_scale = mesh_child.scene_entity.unwrap().transform.scale.x;
-    assert!(mesh_scale < 0.5, "sausage scaled down to fit the scene (scale = {mesh_scale})");
-    assert!(contents.join("meshes/sausage.fbx").is_file(), "sausage FBX vendored");
-    println!("[ok] scene parsed: {} instances", scene.instances.len());
+    assert_eq!(scene.instances.len(), 10, "expected 10 entity instances");
+    let agent_inst = scene.instances.iter().find(|i| i.overrides.name == "Agent").expect("Agent");
+    assert_eq!(
+        agent_inst.overrides.nav_agent.as_ref().expect("Agent has a NavAgent").profile,
+        "default",
+        "default agent routes on the default navmesh",
+    );
+    let wide_inst = scene.instances.iter().find(|i| i.overrides.name == "WideAgent").expect("WideAgent");
+    assert_eq!(
+        wide_inst.overrides.nav_agent.as_ref().expect("WideAgent has a NavAgent").profile,
+        "wide",
+        "wide agent routes on the wide navmesh",
+    );
+    println!("[ok] scene parsed: {} instances, agents carry nav profiles", scene.instances.len());
 
-    // 4. Assemble + confirm the gameplay script loaded (it lives in the
-    //    contents root because Scripts::load_dir is non-recursive).
+    // 4. Assemble + confirm the gameplay script loaded.
     let mut app = App::from_project_file(&proj_path).expect("app builds from project");
     let script_count = app.world.get_resource::<Scripts>().map(|s| s.len()).unwrap_or(0);
     assert!(script_count >= 1, "game.rhai loaded (Scripts::len = {script_count})");
     scene.apply(&mut app.world);
 
-    let player = find(&app, "Player");
-    assert!(app.world.get::<CharacterMover>(player).is_some(), "Player has CharacterMover");
-    let controller = find(&app, "PlayerController");
-    assert!(app.world.get::<PlayerController>(controller).is_some(), "controller present");
-    let camera = find(&app, "Camera");
-    assert!(app.world.get::<Camera3d>(camera).is_some(), "camera has Camera3d");
-    assert!(app.world.get::<CameraRig>(camera).is_some(), "camera has CameraRig");
-    for terrain in ["Ground", "Ramp"] {
-        assert!(app.world.get::<Collider>(find(&app, terrain)).is_some(), "{terrain} collider");
+    let agent = find(&app, "Agent");
+    let wide = find(&app, "WideAgent");
+    assert!(app.world.get::<CharacterMover>(agent).is_some(), "Agent has a CharacterMover body");
+    assert_eq!(app.world.get::<NavAgent>(agent).expect("Agent NavAgent").profile, "default");
+    assert_eq!(app.world.get::<NavAgent>(wide).expect("WideAgent NavAgent").profile, "wide");
+    // The floor collider is the navmesh's walkable input; the walls carve
+    // it via NavObstacle.
+    assert!(
+        matches!(app.world.get::<RigidBody>(find(&app, "Ground")).map(|b| b.kind), Some(BodyKind::Fixed)),
+        "floor is static geometry",
+    );
+    assert!(app.world.get::<Collider>(find(&app, "Ground")).is_some(), "floor has a collider (navmesh input)");
+    for wall in ["WallWest", "WallEast"] {
+        assert!(app.world.get::<NavObstacle>(find(&app, wall)).is_some(), "{wall} carves the navmesh (NavObstacle)");
     }
+    assert!(app.world.get::<Camera3d>(find(&app, "Camera")).is_some(), "camera has Camera3d");
     assert!(app.world.get::<DirectionalLight>(find(&app, "Sun")).is_some(), "sun light");
     assert!(app.world.get::<AmbientLight>(find(&app, "Ambient")).is_some(), "ambient light");
+    println!("[ok] stack assembled + game.rhai loaded (agents/walls/floor/camera/lights)");
 
-    let coins_alive = |app: &App| {
-        app.world
-            .iter_entities()
-            .filter(|&e| app.world.get::<EntityName>(e).map(|n| n.0.starts_with("Coin")).unwrap_or(false))
-            .count()
-    };
-    assert_eq!(coins_alive(&app), 3, "three coins spawned");
-
-    let platform = find(&app, "Platform");
-    assert!(app.world.get::<Collider>(platform).is_some(), "platform collider");
-    assert!(
-        matches!(app.world.get::<RigidBody>(platform).map(|b| b.kind), Some(BodyKind::Kinematic)),
-        "platform is a kinematic body",
-    );
-    let enemy = find(&app, "Enemy");
-    assert!(app.world.get::<AiController>(enemy).is_some(), "enemy AiController");
-    assert!(app.world.get::<CharacterMover>(enemy).is_some(), "enemy CharacterMover");
-    println!("[ok] stack assembled + game.rhai loaded (pawn/controller/camera/terrain/lights/coins/platform/enemy)");
-
-    // The enemy must be NON-LETHAL: on contact it gets sent home, and the
-    // player is NOT reset to spawn (that was the reset loop). Put the
-    // player away from spawn, sit the enemy on top of it, tick once, and
-    // confirm the player stayed put while the enemy went home.
+    // 5. Enable navmesh generation exactly like src/main.rs, then let the
+    //    schedule build it. Drop Time so the mover/physics use a fixed
+    //    1/60 step and the build is deterministic.
     {
-        use soxide_engine::core::glam::DVec3;
-        app.world.get_mut::<SceneEntity>(player).unwrap().transform.translation = DVec3::new(3.0, 1.0, 4.0);
-        app.world.get_mut::<SceneEntity>(enemy).unwrap().transform.translation = DVec3::new(3.0, 1.0, 4.4);
-        app.schedule.run(&mut app.world);
-        let pp = player_pos(&app, player);
-        assert!(
-            (pp.x - 3.0).abs() < 1.0 && pp.z > 2.0,
-            "enemy contact must NOT reset the player to spawn (player now at {pp:?})",
-        );
-        assert!(player_pos(&app, enemy).z < -5.0, "enemy sent home on contact");
-        // Put the player back at spawn so the later phases are unaffected.
-        app.world.get_mut::<SceneEntity>(player).unwrap().transform.translation = DVec3::new(0.0, 1.0, 4.0);
-        println!("[ok] enemy is non-lethal: contact sends it home, player not reset");
+        let nav = app
+            .world
+            .get_resource_mut::<NavMeshResource>()
+            .expect("App::new pre-inserts NavMeshResource");
+        nav.profiles = vec![
+            AgentProfile { name: "default".into(), radius: 0.5, height: 1.8, max_step: 0.4, max_slope_deg: 50.0 },
+            AgentProfile { name: "wide".into(), radius: 1.0, height: 1.8, max_step: 0.4, max_slope_deg: 50.0 },
+        ];
+        nav.auto_build = true;
     }
-
-    // Despawn the enemy so the physics/ramp assertions below are
-    // deterministic (it would otherwise wander into them).
-    app.world.despawn(enemy);
-
-    // 5a. Settle: no input. Drop Time so mover/physics use a fixed 1/60
-    //     step (Time is normally advanced by the platform runner).
     app.world.resources_mut().remove::<soxide_engine::core::Time>();
-    let cam_start = player_pos(&app, camera);
-    for _ in 0..240 {
+    for _ in 0..5 {
         app.schedule.run(&mut app.world);
     }
-    let mover = app.world.get::<CharacterMover>(player).expect("mover survives ticks");
-    let py = player_pos(&app, player).y;
-    assert!(mover.state.grounded, "player settled on the floor (y = {py})");
-    assert!(py > 0.0, "player did not tunnel through the floor (y = {py})");
-    println!("[ok] 240 ticks: player grounded at y = {py:.3}, mode = {}", mover.mode);
+    assert!(
+        app.world.get_resource::<NavMeshResource>().unwrap().set.is_some(),
+        "navmesh auto-built from the world's collider geometry",
+    );
 
-    let cam_end = player_pos(&app, camera);
-    assert!((cam_end - cam_start).length() > 0.5, "camera rig followed the pawn");
-    println!("[ok] camera rig followed possession: {cam_start:?} -> {cam_end:?}");
-    assert_eq!(coins_alive(&app), 3, "coins intact while the player is out of range");
 
-    // 5b. THE REGRESSION TEST for "the character doesn't move": hold W
-    //     (MoveForward). The gameplay script must read the input action
-    //     and drive the mover forward (-Z). This is exactly the path
-    //     that was broken (script not loaded + Swizzle modifier dead).
-    let z_before = player_pos(&app, player).z;
-    for _ in 0..45 {
-        if let Some(input) = app.world.get_resource_mut::<Input>() {
-            input.feed_key(KeyCode::W, ButtonState::Pressed);
+    // 5a. Pathfinding routes AROUND the wall, per profile.
+    let (def_len, c_def, c_wide) = {
+        let res = app.world.get_resource::<NavMeshResource>().unwrap();
+        let filter = QueryFilter::default();
+        let p_def = res
+            .find_path("default", &filter, DVec3::new(-7.0, 0.0, 6.0), DVec3::new(-7.0, 0.0, -6.0))
+            .expect("default agent finds a path");
+        let p_wide = res
+            .find_path("wide", &filter, DVec3::new(-4.0, 0.0, 6.0), DVec3::new(-4.0, 0.0, -6.0))
+            .expect("wide agent finds a path");
+        (p_def.len(), path_clearance(&p_def), path_clearance(&p_wide))
+    };
+    assert!(def_len >= 3, "the route detours around the wall (not a straight line): {def_len} waypoints");
+    assert!(c_def > 0.0, "default route never crosses a wall (clearance {c_def:.2} m)");
+    assert!(
+        c_wide > c_def + 0.2,
+        "the wider profile keeps a larger berth from the walls (default {c_def:.2} m vs wide {c_wide:.2} m)",
+    );
+    println!("[ok] navmesh routes around the wall: {def_len} waypoints, clearance default {c_def:.2} m < wide {c_wide:.2} m");
+
+    // 6. End-to-end: the schedule walks the Agent from z = +6 to its goal
+    //    at z = -6, crossing the wall band ONLY through the central gap.
+    let start = pos(&app, agent);
+    assert!(start.z > 5.0, "agent starts on the near side");
+    let mut crossed_in_gap = true;
+    for _ in 0..900 {
+        app.schedule.run(&mut app.world);
+        let p = pos(&app, agent);
+        if p.z.abs() <= 0.6 && (p.x < -2.6 || p.x > 2.6) {
+            crossed_in_gap = false; // entered the wall band outside the gap
         }
-        app.schedule.run(&mut app.world);
     }
-    let after = player_pos(&app, player);
-    assert!(
-        after.z < z_before - 0.5,
-        "holding W must move the player forward (-Z): z {z_before:.2} -> {:.2}",
-        after.z,
-    );
-    println!("[ok] input drives movement: holding W moved player z {z_before:.2} -> {:.2}", after.z);
-
-    // 5c. Exercise update() PAST the early-return region: teleport the
-    //     player onto a coin and confirm the script collects it. This
-    //     guards against script runtime errors in update() (e.g. the
-    //     top-level-const bug that aborted update before this code ran).
-    let coin = find(&app, "Coin1");
-    let coin_pos = player_pos(&app, coin);
-    app.world.get_mut::<SceneEntity>(player).unwrap().transform.translation = coin_pos;
-    let before = coins_alive(&app);
-    for _ in 0..3 {
-        app.schedule.run(&mut app.world);
-    }
-    assert!(
-        coins_alive(&app) < before,
-        "game.rhai update() must run past its early sections and collect the coin \
-         (a script error would leave it: {before} coins before, {} after)",
-        coins_alive(&app),
-    );
-    println!("[ok] script update() runs fully: coin collected on contact ({before} -> {})", coins_alive(&app));
-
-    // 5d. Ramp climb: drop the player just in front of the ramp and hold
-    //     W; the mover must walk it UP (y rises), proving the reshaped
-    //     ~14° slope is actually walkable.
-    if let Some(input) = app.world.get_resource_mut::<Input>() {
-        input.feed_key(KeyCode::W, ButtonState::Released);
-    }
-    app.world.get_mut::<SceneEntity>(player).unwrap().transform.translation =
-        soxide_engine::core::glam::DVec3::new(0.0, 1.0, 0.8);
-    for _ in 0..15 {
-        app.schedule.run(&mut app.world); // settle at the ramp foot
-    }
-    let y_foot = player_pos(&app, player).y;
-    for _ in 0..90 {
-        if let Some(input) = app.world.get_resource_mut::<Input>() {
-            input.feed_key(KeyCode::W, ButtonState::Pressed);
-        }
-        app.schedule.run(&mut app.world);
-    }
-    let top = player_pos(&app, player);
-    assert!(
-        top.y > y_foot + 0.4,
-        "player must climb the ramp (y {y_foot:.2} -> {:.2} at z {:.2})",
-        top.y,
-        top.z,
-    );
-    println!("[ok] ramp is walkable: player climbed y {y_foot:.2} -> {:.2} (z {:.2})", top.y, top.z);
+    let end = pos(&app, agent);
+    assert!(crossed_in_gap, "agent crossed the wall band only through the gap (ended {end:?})");
+    assert!(end.z < -5.0, "agent reached the far side near its goal (z = {:.2})", end.z);
+    assert!((end.x + 7.0).abs() < 1.5, "agent ended near its goal x = -7 (x = {:.2})", end.x);
+    println!("[ok] agent navigated around the wall: start {start:?} -> goal {end:?}");
 
     println!("\nALL HEADLESS CHECKS PASSED");
 }

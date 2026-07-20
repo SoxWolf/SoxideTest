@@ -1,0 +1,10 @@
+// Full-`App` game plugin manifest. Points the editor/runner at the compiled
+// cdylib (libsausage_playground.so) that exports `sox_plugin_build`.
+// `library_dir` is the dev (debug) Cargo output; change to `../../target/release`
+// for a release build.
+(
+    name: "voxel-world",
+    kind: Game,
+    library: Some("sausage_playground"),
+    library_dir: Some("../../target/debug"),
+)

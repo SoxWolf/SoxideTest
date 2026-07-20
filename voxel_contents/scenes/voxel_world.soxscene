@@ -1,0 +1,11 @@
+// Empty scene for the Voxel World project. All content (terrain, player,
+// camera, lights, creatures) is added in code by the `voxel-world` plugin
+// (plugins/voxel) when the project loads — this scene just gives the editor
+// something to open.
+//
+// This project has its OWN contents dir (voxel_contents/) so it does NOT pick
+// up the navmesh demo's `game.rhai` from contents/ — that script was auto-
+// loading and drawing the "Navmesh demo" HUD over the voxel world.
+(
+    instances: [],
+)
