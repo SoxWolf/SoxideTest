@@ -87,11 +87,13 @@ impl Default for VoxelConfig {
             seed: 1337,
             sea_level: 5,
             max_height: 14,
-            // Chunked terrain is cheap, so spend the ECS budget on a big
-            // roaming population — that's where the stress lives now.
-            creatures: 300,
-            orbs: 150,
-            dyn_cubes: 40,
+            // Playable population. The engine can push far more (this was a
+            // 300/150/40 stress test), but 220 live AI creatures + 150 orbs +
+            // 40 physics cubes crawled on a real machine. Keep it lively but
+            // smooth; bump these back up for a stress run.
+            creatures: 45,
+            orbs: 24,
+            dyn_cubes: 8,
         }
     }
 }
@@ -1593,6 +1595,11 @@ pub fn install_voxel_game(app: &mut App) {
     player.pos = spawn;
     player.pitch = -0.35; // tilt down so the terrain is in frame on spawn
     app.insert_resource(player);
+
+    // Lock + hide the cursor so mouse-look works from frame one. Without this
+    // resource present, `player_control_tick` has nothing to drive and the
+    // cursor stays free — the camera never turns with the mouse. Esc toggles it.
+    app.insert_resource(CursorGrab { grabbed: true, hidden: true });
 
     app.insert_resource(SpawnAssets::default());
     app.insert_resource(AtlasTex::default());
