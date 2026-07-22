@@ -45,10 +45,10 @@ path = "src/main.rs"
 soxide-engine = { path = "../Soxide/crates/soxide-engine" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-soxide-platform-linux = { path = "../Soxide/crates/soxide-platform-linux" }
+soxide-platform-linux = { path = "../Soxide/crates/soxide-platforms/linux" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-soxide-platform-windows = { path = "../Soxide/crates/soxide-platform-windows" }
+soxide-platform-windows = { path = "../Soxide/crates/soxide-platforms/windows" }
 
 [dev-dependencies]
 # For the headless test that dlopens the compiled plugin and runs it exactly
