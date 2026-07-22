@@ -14,23 +14,46 @@ version.workspace = true
 edition.workspace = true
 publish = false
 
+# Built as both an rlib (for the bin + tests) and a cdylib (the full-`App`
+# plugin the editor/runner dlopen — see `sox_plugin!(install_voxel_game)` in
+# src/lib.rs and plugins/voxel/voxel.soxplugin). The lib target keeps the
+# package name `sausage_playground` so the plugin dll name, the
+# `voxel.soxplugin` reference, and `use sausage_playground::…` all stay
+# stable.
+[lib]
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
+# The bin target MUST use a name distinct from the lib, otherwise both emit
+# `sausage_playground.pdb` and cargo reports an output-filename collision on
+# Windows (rust-lang/cargo#6313). Renaming the binary (not the lib) keeps the
+# plugin contract untouched; `cargo run` still auto-selects this single bin.
 [[bin]]
-name = "sausage_playground"
+name = "sausage_playground_run"
 path = "src/main.rs"
 
-# The engine lives in a SEPARATE repository and is pulled in as a git
-# dependency (NOT a path dependency): the game tree and the engine tree
-# stay physically disjoint, which is a hard architectural invariant of
-# Soxide. The crates are workspace members of the engine repo, addressed
-# by package name and pinned to an exact revision for reproducibility.
+# LOCAL DEV: the engine is consumed as PATH dependencies against a sibling
+# `../Soxide` checkout — the exact same source the editor is built from. This
+# keeps the plugin and the editor in lockstep (no rev/ABI mismatch, no hash
+# re-pinning) as engine + game are co-developed locally.
+#
+# NOTE: this only builds where `../Soxide` exists (a full engine checkout next
+# to this repo). CI and fresh clones without that sibling WILL fail — that's
+# intentional for this dev setup. The three direct crates are enough; their
+# transitive `soxide-*` deps resolve from the engine's own workspace.
 [dependencies]
-soxide-engine = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-engine", rev = "124bd242ec46f9cc88bbc7fdae7487150eac5dde" }
+soxide-engine = { path = "../Soxide/crates/soxide-engine" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-soxide-platform-linux = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-linux", rev = "124bd242ec46f9cc88bbc7fdae7487150eac5dde" }
+soxide-platform-linux = { path = "../Soxide/crates/soxide-platforms/linux" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-soxide-platform-windows = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-windows", rev = "124bd242ec46f9cc88bbc7fdae7487150eac5dde" }
+soxide-platform-windows = { path = "../Soxide/crates/soxide-platforms/windows" }
+
+[dev-dependencies]
+# For the headless test that dlopens the compiled plugin and runs it exactly
+# as the editor/runner would.
+libloading = "0.8"
 
 [profile.dev]
 opt-level = 1

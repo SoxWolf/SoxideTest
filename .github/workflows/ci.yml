@@ -33,9 +33,10 @@ jobs:
           fi
           git config --global url."https://x-access-token:${ENGINE_TOKEN}@github.com/".insteadOf "https://github.com/"
 
-      # libudev is needed by `gilrs` (gamepad support) in the platform crate.
+      # libudev (gilrs gamepad) + libasound2 (ALSA audio) are needed by the
+      # platform crate's transitive system deps.
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libudev-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev libasound2-dev pkg-config
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -46,5 +47,8 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
-      - name: Headless check
+      - name: Headless check (navmesh demo assets)
         run: cargo run --example headless_check
+
+      - name: Voxel world tests (+ the full-App plugin dlopen test)
+        run: cargo test

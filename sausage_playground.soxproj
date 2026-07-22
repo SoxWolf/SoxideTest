@@ -3,12 +3,12 @@
 // relative to this file (contents_path) or to contents_path
 // (default_scene).
 (
-    name: "Sausage Playground",
+    name: "Soxide Navmesh Demo",
     version: "0.1.0",
     contents_path: "contents",
     default_scene: Some("scenes/main.soxscene"),
     window: (
-        title: "Sausage Playground",
+        title: "Soxide Navmesh Demo",
         width: 1280,
         height: 720,
         resizable: true,

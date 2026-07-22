@@ -1,43 +1,18 @@
-//! Sausage Playground — a minimal third-person Soxide sample.
+//! Voxel World — a Minecraft-style Soxide game.
 //!
-//! `main` loads the sibling `.soxproj` manifest and hands the resulting
-//! `App` to the platform runner. Everything that makes up the game — the
-//! terrain + ramp colliders, the skinned character, its `CharacterMover`
-//! / `MoverInputBinding` / `PlayerController`, the follow `CameraRig`,
-//! the lights, and the input assets — is authored as plain-text assets
-//! under `contents/` and loaded by the engine:
+//! An infinite, procedurally-generated voxel world you explore in first
+//! person: gravity-walking player (WASD + mouse, Space to jump), left-click
+//! to carve a block, right-click to place one, F5 to save. Chunks stream in
+//! and out around you (greedy-meshed, textured, with a water plane), a live
+//! creature population follows you, and edits + player position persist to a
+//! save file.
 //!
-//! - the project's `default_scene` (`contents/scenes/main.soxscene`) is
-//!   auto-loaded by the runner on startup;
-//! - the `.soxaction` / `.soxinputcontext` files under `contents/input/`
-//!   are registered by `App::from_project_file`;
-//! - `contents/scripts/input_setup.rhai` activates the `gameplay`
-//!   input mapping context once at startup.
-//!
-//! So this binary is deliberately tiny: the engine does the rest.
-
-use soxide_engine::App;
-use std::path::PathBuf;
+//! Everything is built in code (see `lib.rs`); the binary just hands the
+//! assembled `App` to the platform runner, which starts the simulation
+//! un-paused.
 
 fn main() {
-    let proj = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("sausage_playground.soxproj");
-    let mut app = match App::from_project_file(&proj) {
-        Ok(a) => a,
-        Err(e) => {
-            eprintln!("failed to load project {}: {e}", proj.display());
-            std::process::exit(1);
-        }
-    };
-
-    // Hide the OS cursor for mouse-look. The desktop runner reads mouse
-    // motion from the windowed cursor position (it has no pointer-lock /
-    // raw-motion path), so we use HIDDEN (hide only) rather than LOCKED —
-    // locking would pin the cursor and stop delivering motion. The cursor
-    // stays free and invisible; the CameraRig's `look_action` orbits the
-    // camera as you move the mouse over the window. (To quit, close the
-    // window or Ctrl-C the terminal.)
-    app.world
-        .insert_resource(soxide_engine::window::CursorGrab::HIDDEN);
+    let app = sausage_playground::build_streaming_app();
 
     #[cfg(target_os = "linux")]
     use soxide_platform_linux as platform;
@@ -46,14 +21,13 @@ fn main() {
 
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     if let Err(e) = platform::run(app) {
-        eprintln!("sausage_playground exited with error: {e}");
+        eprintln!("voxel world exited with error: {e}");
         std::process::exit(1);
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
         let _ = app;
-        eprintln!("sausage_playground: no platform crate compiled for this OS");
-        std::process::exit(2);
+        eprintln!("no desktop platform for this target");
     }
 }
