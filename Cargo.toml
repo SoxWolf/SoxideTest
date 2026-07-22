@@ -32,20 +32,23 @@ crate-type = ["rlib", "cdylib"]
 name = "sausage_playground_run"
 path = "src/main.rs"
 
-# The engine lives in a SEPARATE repository and is pulled in as a git
-# dependency (NOT a path dependency): the game tree and the engine tree
-# stay physically disjoint, which is a hard architectural invariant of
-# Soxide. Pinned to an exact `main` revision for reproducibility — the same
-# revision the editor is built from, which the plugin ABI-version probe
-# requires (a full-`App` plugin shares real Rust types with the host).
+# LOCAL DEV: the engine is consumed as PATH dependencies against a sibling
+# `../Soxide` checkout — the exact same source the editor is built from. This
+# keeps the plugin and the editor in lockstep (no rev/ABI mismatch, no hash
+# re-pinning) as engine + game are co-developed locally.
+#
+# NOTE: this only builds where `../Soxide` exists (a full engine checkout next
+# to this repo). CI and fresh clones without that sibling WILL fail — that's
+# intentional for this dev setup. The three direct crates are enough; their
+# transitive `soxide-*` deps resolve from the engine's own workspace.
 [dependencies]
-soxide-engine = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-engine", rev = "a24c5c3" }
+soxide-engine = { path = "../Soxide/crates/soxide-engine" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-soxide-platform-linux = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-linux", rev = "a24c5c3" }
+soxide-platform-linux = { path = "../Soxide/crates/soxide-platform-linux" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-soxide-platform-windows = { git = "https://github.com/SoxWolf/Soxide", package = "soxide-platform-windows", rev = "a24c5c3" }
+soxide-platform-windows = { path = "../Soxide/crates/soxide-platform-windows" }
 
 [dev-dependencies]
 # For the headless test that dlopens the compiled plugin and runs it exactly
